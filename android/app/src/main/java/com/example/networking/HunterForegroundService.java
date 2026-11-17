@@ -42,15 +42,32 @@ public class HunterForegroundService extends Service {
         super.onCreate();
         createNotificationChannels(this);
         acquireLocks();
+
+        // Android 14: استدعاء startForeground فوراً في onCreate لمنع انتهاء مهلة الـ 5 ثوانٍ
+        try {
+            Notification initNotif = buildLiveNotification(
+                this,
+                "Network Hunter • قيد الفحص والاصطياد 🚀",
+                "جاري فحص واصطياد كروت الشبكة...",
+                null
+            );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    LIVE_NOTIFICATION_ID,
+                    initNotif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                );
+            } else {
+                startForeground(LIVE_NOTIFICATION_ID, initNotif);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("HunterFGS", "Error calling startForeground in onCreate: " + e.getMessage());
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            return START_STICKY;
-        }
-
-        String action = intent.getAction();
+        String action = intent != null ? intent.getAction() : ACTION_START;
         if (ACTION_STOP.equals(action)) {
             releaseLocks();
             stopForeground(true);
@@ -58,16 +75,16 @@ public class HunterForegroundService extends Service {
             return START_NOT_STICKY;
         }
 
-        String title = intent.getStringExtra("title");
-        String body = intent.getStringExtra("body");
-        String subText = intent.getStringExtra("subText");
+        String title = intent != null ? intent.getStringExtra("title") : null;
+        String body = intent != null ? intent.getStringExtra("body") : null;
+        String subText = intent != null ? intent.getStringExtra("subText") : null;
 
-        if (title == null) title = "Network Hunter قيد العمل 🚀";
-        if (body == null) body = "جاري الفحص والاصطياد في الخلفية...";
+        if (title == null) title = "Network Hunter • قيد الفحص والاصطياد 🚀";
+        if (body == null) body = "جاري فحص واصطياد كروت الشبكة...";
 
         Notification notification = buildLiveNotification(this, title, body, subText);
 
-        if (ACTION_START.equals(action)) {
+        try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
                     LIVE_NOTIFICATION_ID,
@@ -77,7 +94,8 @@ public class HunterForegroundService extends Service {
             } else {
                 startForeground(LIVE_NOTIFICATION_ID, notification);
             }
-        } else {
+        } catch (Exception e) {
+            android.util.Log.e("HunterFGS", "Error in startForeground: " + e.getMessage());
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 nm.notify(LIVE_NOTIFICATION_ID, notification);
@@ -85,6 +103,12 @@ public class HunterForegroundService extends Service {
         }
 
         return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // الحفاظ على استمرار الخدمة في العمل في الخلفية عند إغلاق التطبيق من قائمة التطبيقات النشطة
+        super.onTaskRemoved(rootIntent);
     }
 
     private void acquireLocks() {

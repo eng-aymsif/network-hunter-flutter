@@ -14,7 +14,9 @@ void main() async {
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS)) {
-    await BackgroundHunterService.initializeService();
+    try {
+      await BackgroundHunterService.initializeService();
+    } catch (_) {}
   }
   runApp(const NetworkHunterApp());
 }

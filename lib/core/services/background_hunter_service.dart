@@ -23,6 +23,7 @@ class BackgroundHunterService {
         initialNotificationTitle: 'Network Hunter • الخلفية',
         initialNotificationContent: 'جاري تهيئة خدمة الفحص والاصطياد...',
         foregroundServiceNotificationId: 1001,
+        foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
