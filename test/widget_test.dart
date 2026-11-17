@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/domain/engine/hunter_engine.dart';
 import 'package:networking/main.dart';
+import 'package:networking/presentation/screens/home_screen.dart';
 import 'package:networking/presentation/widgets/engine_status_badge.dart';
 import 'package:networking/presentation/widgets/stat_card.dart';
 import 'package:networking/core/constants/app_colors.dart';
+
+void _dummyToggle() {}
 
 void main() {
   setUpAll(() async {
@@ -18,7 +21,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(const NetworkHunterApp());
+    await tester.pumpWidget(const NetworkHunterApp(
+      home: HomeScreen(onToggleTheme: _dummyToggle, isDark: false),
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(NetworkHunterApp), findsOneWidget);
@@ -92,7 +97,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(360, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(const NetworkHunterApp());
+    await tester.pumpWidget(const NetworkHunterApp(
+      home: HomeScreen(onToggleTheme: _dummyToggle, isDark: false),
+    ));
     await tester.pump(const Duration(milliseconds: 500));
 
     await tester.tap(find.text('الإعدادات'));

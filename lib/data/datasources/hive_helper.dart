@@ -15,6 +15,7 @@ class HiveHelper implements HunterDatabase {
   static const String hunterStateBoxName = 'hunter_state_box';
   static const String settingsBoxName = 'settings_box';
   static const String testedCardsBoxName = 'tested_cards_box';
+  static const String subscriptionBoxName = 'subscription_box';
 
   bool _isInitialized = false;
 
@@ -22,6 +23,7 @@ class HiveHelper implements HunterDatabase {
   late Box<dynamic> _hunterStateBox;
   late Box<dynamic> _settingsBox;
   late Box<TestedCardModel> _testedCardsBox;
+  late Box<dynamic> _subscriptionBox;
 
   final Set<String> _testedNumbersCache = {};
 
@@ -66,6 +68,7 @@ class HiveHelper implements HunterDatabase {
     _hunterStateBox = await Hive.openBox<dynamic>(hunterStateBoxName);
     _settingsBox = await Hive.openBox<dynamic>(settingsBoxName);
     _testedCardsBox = await Hive.openBox<TestedCardModel>(testedCardsBoxName);
+    _subscriptionBox = await Hive.openBox<dynamic>(subscriptionBoxName);
   }
 
   void _populateCaches() {
@@ -283,5 +286,47 @@ class HiveHelper implements HunterDatabase {
     // box.clear() لمسح سجل الكروت المختبرة
     await _testedCardsBox.clear();
     _testedNumbersCache.clear();
+  }
+
+  // ===========================================================================
+  // بيانات الاشتراك والأمان وحماية التوقيت (Subscription & Anti-Tamper)
+  // ===========================================================================
+
+  Future<void> saveSubscriptionData(Map<String, dynamic> data) async {
+    await _ensureInitialized();
+    for (final entry in data.entries) {
+      await _subscriptionBox.put(entry.key, entry.value);
+    }
+  }
+
+  dynamic getSubscriptionValue(String key, [dynamic defaultValue]) {
+    if (!_isInitialized) return defaultValue;
+    return _subscriptionBox.get(key, defaultValue: defaultValue);
+  }
+
+  Map<String, dynamic> getAllSubscriptionData() {
+    if (!_isInitialized) return {};
+    final map = <String, dynamic>{};
+    for (final key in _subscriptionBox.keys) {
+      map[key.toString()] = _subscriptionBox.get(key);
+    }
+    return map;
+  }
+
+  Future<void> clearSubscriptionData() async {
+    await _ensureInitialized();
+    await _subscriptionBox.clear();
+  }
+
+  int getHighestSeenTimestamp() {
+    return (getSubscriptionValue('highest_seen_timestamp_ms', 0) as num).toInt();
+  }
+
+  Future<void> setHighestSeenTimestamp(int timestampMs) async {
+    await _ensureInitialized();
+    final current = getHighestSeenTimestamp();
+    if (timestampMs > current) {
+      await _subscriptionBox.put('highest_seen_timestamp_ms', timestampMs);
+    }
   }
 }

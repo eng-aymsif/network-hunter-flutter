@@ -5,6 +5,7 @@ import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/data/datasources/unban_service.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/data/models/subscription_model.dart';
 import 'package:networking/data/models/tested_card_model.dart';
 
 void main() {
@@ -211,6 +212,74 @@ void main() {
       final loaded = await helper.loadSettings();
       expect(loaded.url, 'http://custom.com');
       expect(loaded.startNumber, '777');
+    });
+
+    test('Subscription and anti-tamper timestamp storage', () async {
+      await helper.saveSubscriptionData({
+        'request_id': 'SUB-2026-00010',
+        'status': 'Available',
+        'allowed_cards': 50,
+      });
+      expect(helper.getSubscriptionValue('request_id'), 'SUB-2026-00010');
+      expect(helper.getSubscriptionValue('status'), 'Available');
+      expect(helper.getSubscriptionValue('allowed_cards'), 50);
+
+      // Highest seen timestamp monotonic check
+      await helper.setHighestSeenTimestamp(1700000000000);
+      expect(helper.getHighestSeenTimestamp(), 1700000000000);
+
+      // Should not decrease if smaller timestamp is given
+      await helper.setHighestSeenTimestamp(1600000000000);
+      expect(helper.getHighestSeenTimestamp(), 1700000000000);
+
+      // Should increase if larger timestamp is given
+      await helper.setHighestSeenTimestamp(1800000000000);
+      expect(helper.getHighestSeenTimestamp(), 1800000000000);
+    });
+  });
+
+  group('SubscriptionModel Tests', () {
+    test('serialization, deserialization, and quota calculation', () {
+      final sub = SubscriptionModel(
+        requestId: 'SUB-2026-00001',
+        fullName: 'أيمن سيف',
+        phoneNumber: '777000111',
+        deviceId: 'dev_123',
+        status: 'Available',
+        allowedCards: 20,
+        limitType: 'Daily',
+        cardsHuntedToday: 5,
+        totalCardsHunted: 15,
+      );
+
+      expect(sub.isAvailable, isTrue);
+      expect(sub.isPending, isFalse);
+      expect(sub.isStopped, isFalse);
+      expect(sub.isDaily, isTrue);
+      expect(sub.remainingCards, 15);
+      expect(sub.isQuotaExhausted, isFalse);
+
+      final json = sub.toJson();
+      final fromJson = SubscriptionModel.fromJson(json);
+
+      expect(fromJson.requestId, 'SUB-2026-00001');
+      expect(fromJson.fullName, 'أيمن سيف');
+      expect(fromJson.allowedCards, 20);
+      expect(fromJson.cardsHuntedToday, 5);
+
+      // Quota exhausted test
+      final exhaustedSub = sub.copyWith(cardsHuntedToday: 20);
+      expect(exhaustedSub.remainingCards, 0);
+      expect(exhaustedSub.isQuotaExhausted, isTrue);
+
+      // Lifetime limit test
+      final lifetimeSub = sub.copyWith(
+        limitType: 'Lifetime',
+        allowedCards: 50,
+        totalCardsHunted: 50,
+      );
+      expect(lifetimeSub.isDaily, isFalse);
+      expect(lifetimeSub.isQuotaExhausted, isTrue);
     });
   });
 }

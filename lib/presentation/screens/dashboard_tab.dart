@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/presentation/providers/engine_provider.dart';
 import 'package:networking/presentation/providers/logs_provider.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
@@ -28,6 +29,56 @@ class DashboardTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // شريط حالة الاشتراك وحصة الكروت المسموح بها
+              Builder(
+                builder: (context) {
+                  final sub = SubscriptionService.instance.currentSubscription;
+                  if (sub == null) return const SizedBox.shrink();
+                  final isDaily = sub.isDaily;
+                  final allowed = sub.allowedCards;
+                  final left = sub.remainingCards;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'حصة الكروت: $left متبقية من $allowed (${isDaily ? "تتجدد يومياً" : "رصيد دائم"})',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: sub.isAvailable
+                                ? AppColors.success.withValues(alpha: 0.15)
+                                : Colors.orange.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            sub.isAvailable ? 'متاح 🟢' : sub.status,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: sub.isAvailable ? AppColors.success : Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
               // 1. شبكة كروت الإحصائيات الأربعة
               GridView.builder(
                 shrinkWrap: true,

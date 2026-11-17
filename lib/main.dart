@@ -8,7 +8,7 @@ import 'package:networking/presentation/providers/cards_provider.dart';
 import 'package:networking/presentation/providers/engine_provider.dart';
 import 'package:networking/presentation/providers/logs_provider.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
-import 'package:networking/presentation/screens/home_screen.dart';
+import 'package:networking/presentation/screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +27,8 @@ void main() async {
 }
 
 class NetworkHunterApp extends StatefulWidget {
-  const NetworkHunterApp({super.key});
+  final Widget? home;
+  const NetworkHunterApp({super.key, this.home});
 
   @override
   State<NetworkHunterApp> createState() => _NetworkHunterAppState();
@@ -64,10 +65,11 @@ class _NetworkHunterAppState extends State<NetworkHunterApp> {
             child: child ?? const SizedBox.shrink(),
           );
         },
-        home: HomeScreen(
-          onToggleTheme: _toggleTheme,
-          isDark: _themeMode == ThemeMode.dark,
-        ),
+        home: widget.home ??
+            SplashScreen(
+              onToggleTheme: _toggleTheme,
+              isDark: _themeMode == ThemeMode.dark,
+            ),
       ),
     );
   }

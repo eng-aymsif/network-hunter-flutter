@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:networking/core/constants/app_strings.dart';
 import 'package:networking/core/services/background_hunter_service.dart';
+import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/core/utils/sound_helper.dart';
 import 'package:networking/data/datasources/database_helper.dart';
@@ -168,6 +169,7 @@ class EngineProvider extends ChangeNotifier {
 
     _engine = HunterEngine(
       db: _db,
+      enforceQuota: true,
       onLog: (msg) {
         _logsProvider?.addLog(msg);
         _latestLogLine = msg.trim();
@@ -303,6 +305,21 @@ class EngineProvider extends ChangeNotifier {
   Future<void> startHunting() async {
     if (_settingsProvider == null) return;
     if (isRunning) return;
+
+    // التحقق الصارم من حالة الاشتراك وسقف الكروت وسلامة التوقيت قبل البدء
+    final (canHunt, huntReason) = SubscriptionService.instance.canHunt();
+    if (!canHunt) {
+      final msg = huntReason ?? 'غير مصرح بالاصطياد حالياً';
+      _logsProvider?.addLog('🚫 [تنبيه أمني]: $msg');
+      NativeBridge.showAlertNotification(
+        title: 'تنبيه الاشتراك والقيود',
+        body: msg,
+        isError: true,
+      );
+      _statusText = msg;
+      notifyListeners();
+      return;
+    }
 
     // التأكد من استثناء البطارية ليعمل في الخلفية بلا انقطاع
     final ignoringBattery = await NativeBridge.isIgnoringBatteryOptimizations();

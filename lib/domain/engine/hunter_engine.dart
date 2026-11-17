@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/core/utils/number_formatter.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/domain/engine/hunter_adapters.dart';
@@ -180,6 +181,7 @@ class HunterEngine {
   final HunterUnbanHandler unbanHandler;
   final HunterDelayer delayer;
   final HunterHttpClient httpClient;
+  final bool enforceQuota;
 
   HunterBrowserController? browserController;
   SettingsModel Function()? configProvider;
@@ -228,6 +230,7 @@ class HunterEngine {
     HunterDelayer? delayer,
     this.browserController,
     HunterHttpClient? httpClient,
+    this.enforceQuota = false,
     this.onLog,
     this.onStats,
     this.onFound,
@@ -312,6 +315,18 @@ class HunterEngine {
         );
       }
 
+      // التحقق الصارم من حالة الاشتراك وسقف الكروت وسلامة توقيت النظام
+      if (enforceQuota) {
+        final (canHuntStart, huntStartReason) = SubscriptionService.instance.canHunt();
+        if (!canHuntStart) {
+          final reason = huntStartReason ?? 'غير مصرح بالاصطياد حالياً';
+          onLog?.call('🚫 [تنبيه أمني]: $reason');
+          onStatusChange?.call(EngineStatus.ready, reason);
+          _isRunning = false;
+          return;
+        }
+      }
+
       // استرجاع رقم البداية
       final savedLast = await db.getState('last_tested_number');
       if (config.resumeSaved && savedLast != null && savedLast.isNotEmpty) {
@@ -388,6 +403,17 @@ class HunterEngine {
             '🏁 تم الوصول إلى الحد الأقصى للمحاولات المحدد (${currentConfig.maxAttempts}).',
           );
           break;
+        }
+
+        // فحص دوري لسقف الكروت المسموح باصطيادها وسلامة توقيت النظام من التلاعب
+        if (enforceQuota) {
+          final (stillCanHunt, periodicReason) = SubscriptionService.instance.canHunt();
+          if (!stillCanHunt) {
+            final reason = periodicReason ?? 'تم استنفاد سقف الكروت المسموح به';
+            onLog?.call('🛑 [إيقاف تلقائي]: $reason');
+            onStatusChange?.call(EngineStatus.ready, reason);
+            break;
+          }
         }
 
         attempt++;
@@ -538,6 +564,7 @@ class HunterEngine {
             portalMessage: 'تم تسجيل الدخول بنجاح واصطياد الكرت 🎉',
             isLast: true,
           );
+          await SubscriptionService.instance.onCardHunted(count: 1);
           onFound?.call(currentNumber, finalUrl);
           onStats?.call(currentNumber, totalAttempts, foundCount, unbanCount);
 
