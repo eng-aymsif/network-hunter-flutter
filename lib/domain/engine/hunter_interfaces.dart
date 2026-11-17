@@ -20,6 +20,13 @@ abstract class HunterDatabase {
   Future<String?> getState(String key);
   Future<void> setState(String key, String value);
   Future<bool> saveFoundCard(String cardNumber, String loginUrl, {String notes = ''});
+  Future<void> recordTestedCard({
+    required String cardNumber,
+    required String status,
+    required String portalMessage,
+    bool isLast = true,
+  });
+  Future<bool> isCardAlreadyTested(String cardNumber);
 }
 
 /// Abstract contract for network & Wi-Fi connectivity verification

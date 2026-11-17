@@ -3,6 +3,7 @@ import 'package:networking/core/utils/number_formatter.dart';
 import 'package:networking/data/datasources/unban_service.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/data/models/tested_card_model.dart';
 
 void main() {
   group('NumberFormatter Tests', () {
@@ -84,6 +85,35 @@ void main() {
       expect(restored.startNumber, settings.startNumber);
       expect(restored.delayBetween, settings.delayBetween);
       expect(restored.useWebView, settings.useWebView);
+      expect(restored.skipAlreadyTested, settings.skipAlreadyTested);
+    });
+  });
+
+  group('TestedCardModel Tests', () {
+    test('serialization, deserialization, and copyWith', () {
+      final model = TestedCardModel(
+        id: 1,
+        cardNumber: '201150010',
+        testedAt: '2026-11-17 07:09:24',
+        status: 'failed',
+        portalMessage: 'رمز الدخول غير صحيح',
+        isLastTested: true,
+      );
+
+      final map = model.toMap();
+      final restored = TestedCardModel.fromMap(map);
+
+      expect(restored.id, 1);
+      expect(restored.cardNumber, '201150010');
+      expect(restored.testedAt, '2026-11-17 07:09:24');
+      expect(restored.status, 'failed');
+      expect(restored.portalMessage, 'رمز الدخول غير صحيح');
+      expect(restored.isLastTested, isTrue);
+
+      final copied = model.copyWith(isLastTested: false, status: 'success');
+      expect(copied.isLastTested, isFalse);
+      expect(copied.status, 'success');
+      expect(copied.cardNumber, '201150010');
     });
   });
 }

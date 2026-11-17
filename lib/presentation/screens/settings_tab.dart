@@ -36,6 +36,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _injectSaleem = true;
   bool _injectSaveUsername = true;
   bool _usePopupSubmit = true;
+  bool _skipAlreadyTested = false;
   bool _initialized = false;
 
   @override
@@ -68,6 +69,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _injectSaleem = s.injectSaleem;
       _injectSaveUsername = s.injectSaveUsername;
       _usePopupSubmit = s.usePopupSubmit;
+      _skipAlreadyTested = s.skipAlreadyTested;
 
       // ربط التغييرات النصية لحظياً بـ SettingsProvider لضمان تطبيق أي تعديل فوراً
       void syncLive() {
@@ -106,6 +108,7 @@ class _SettingsTabState extends State<SettingsTab> {
             injectSaleem: _injectSaleem,
             injectSaveUsername: _injectSaveUsername,
             usePopupSubmit: _usePopupSubmit,
+            skipAlreadyTested: _skipAlreadyTested,
           ),
         );
       }
@@ -379,6 +382,33 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                       ),
                     ),
+                    const Divider(height: 16),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'تخطي الكروت التي تم اختبارها مسبقاً',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'تخطي أي كرت مسجل في قاعدة البيانات (سواء تم اصطياده بنجاح أو لم ينجح) والقفز للرقم التالي مباشرة لتسريع الفحص.',
+                        style: TextStyle(fontFamily: 'Cairo', fontSize: 11),
+                      ),
+                      value: _skipAlreadyTested,
+                      activeColor: AppColors.primary,
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setState(() => _skipAlreadyTested = val);
+                        settingsProv.updateSettings(
+                          settingsProv.settings.copyWith(
+                            skipAlreadyTested: val,
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -580,6 +610,7 @@ class _SettingsTabState extends State<SettingsTab> {
                             injectSaleem: _injectSaleem,
                             injectSaveUsername: _injectSaveUsername,
                             usePopupSubmit: _usePopupSubmit,
+                            skipAlreadyTested: _skipAlreadyTested,
                           );
                           settingsProv.saveSettings(updated);
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -631,6 +662,7 @@ class _SettingsTabState extends State<SettingsTab> {
                             _injectSaleem = s.injectSaleem;
                             _injectSaveUsername = s.injectSaveUsername;
                             _usePopupSubmit = s.usePopupSubmit;
+                            _skipAlreadyTested = s.skipAlreadyTested;
                           });
 
                           if (!context.mounted) return;

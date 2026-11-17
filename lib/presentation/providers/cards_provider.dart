@@ -7,6 +7,7 @@ import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/data/datasources/database_helper.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/data/models/tested_card_model.dart';
 
 class CardsProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -18,13 +19,29 @@ class CardsProvider extends ChangeNotifier {
   bool _isCheckingBatch = false;
   String _batchCheckStatus = '';
 
+  List<TestedCardModel> _testedCards = [];
+  bool _isLoadingTested = false;
+  String _testedSearchQuery = '';
+
   List<CardModel> get cards {
     if (_searchQuery.isEmpty) return _cards;
     return _cards.where((c) => c.cardNumber.contains(_searchQuery)).toList();
   }
 
+  List<TestedCardModel> get testedCards {
+    if (_testedSearchQuery.isEmpty) return _testedCards;
+    return _testedCards
+        .where((c) =>
+            c.cardNumber.contains(_testedSearchQuery) ||
+            c.portalMessage.contains(_testedSearchQuery) ||
+            c.status.contains(_testedSearchQuery))
+        .toList();
+  }
+
   bool get isLoading => _isLoading;
+  bool get isLoadingTested => _isLoadingTested;
   int get totalCount => _cards.length;
+  int get totalTestedCount => _testedCards.length;
   int get unusedCount => _cards.where((c) => !c.isUsed).length;
 
   Set<int> get selectedIds => _selectedIds;
@@ -35,10 +52,16 @@ class CardsProvider extends ChangeNotifier {
 
   CardsProvider() {
     loadCards();
+    loadTestedCards();
   }
 
   void setSearchQuery(String query) {
     _searchQuery = query;
+    notifyListeners();
+  }
+
+  void setTestedSearchQuery(String query) {
+    _testedSearchQuery = query;
     notifyListeners();
   }
 
@@ -87,6 +110,22 @@ class CardsProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadTestedCards() async {
+    _isLoadingTested = true;
+    notifyListeners();
+    try {
+      _testedCards = await _db.getAllTestedCards();
+    } finally {
+      _isLoadingTested = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> clearAllTestedCards() async {
+    await _db.clearAllTestedCards();
+    await loadTestedCards();
   }
 
   Future<void> toggleUsed(int cardId) async {

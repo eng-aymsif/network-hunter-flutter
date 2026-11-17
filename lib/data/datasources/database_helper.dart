@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/data/models/tested_card_model.dart';
 import 'package:networking/domain/engine/hunter_interfaces.dart';
 
 class DatabaseHelper implements HunterDatabase {
@@ -23,7 +24,7 @@ class DatabaseHelper implements HunterDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         // 1. جدول الكروت المكتشفة الصحيحة
         await db.execute('''
@@ -52,8 +53,32 @@ class DatabaseHelper implements HunterDatabase {
             value TEXT
           )
         ''');
+
+        // 4. جدول سجل الكروت المختبرة
+        await _createTestedCardsTable(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _createTestedCardsTable(db);
+        }
       },
     );
+  }
+
+  static Future<void> _createTestedCardsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tested_cards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_number TEXT NOT NULL,
+        tested_at TEXT NOT NULL,
+        status TEXT NOT NULL,
+        portal_message TEXT,
+        is_last_tested INTEGER DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_tested_card_number ON tested_cards (card_number)
+    ''');
   }
 
   // ==================== الكروت (Found Cards) ====================
@@ -166,5 +191,103 @@ class DatabaseHelper implements HunterDatabase {
       map[k] = v;
     }
     return SettingsModel.fromMap(map);
+  }
+
+  // ==================== الكروت المختبرة (Tested Cards) ====================
+
+  @override
+  Future<void> recordTestedCard({
+    required String cardNumber,
+    required String status,
+    required String portalMessage,
+    bool isLast = true,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String().replaceAll('T', ' ').split('.').first;
+
+    await db.transaction((txn) async {
+      if (isLast) {
+        await txn.update(
+          'tested_cards',
+          {'is_last_tested': 0},
+          where: 'is_last_tested = 1',
+        );
+      }
+
+      await txn.insert(
+        'tested_cards',
+        {
+          'card_number': cardNumber,
+          'tested_at': now,
+          'status': status,
+          'portal_message': portalMessage,
+          'is_last_tested': isLast ? 1 : 0,
+        },
+      );
+
+      if (isLast) {
+        await txn.insert(
+          'hunter_state',
+          {'key': 'last_tested_number', 'value': cardNumber},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  Future<List<TestedCardModel>> getAllTestedCards({String? query}) async {
+    final db = await database;
+    List<Map<String, dynamic>> res;
+    if (query != null && query.trim().isNotEmpty) {
+      final q = '%${query.trim()}%';
+      res = await db.query(
+        'tested_cards',
+        where: 'card_number LIKE ? OR portal_message LIKE ?',
+        whereArgs: [q, q],
+        orderBy: 'id DESC',
+      );
+    } else {
+      res = await db.query('tested_cards', orderBy: 'id DESC');
+    }
+    return res.map((m) => TestedCardModel.fromMap(m)).toList();
+  }
+
+  @override
+  Future<bool> isCardAlreadyTested(String cardNumber) async {
+    final db = await database;
+    final res = await db.query(
+      'tested_cards',
+      columns: ['id'],
+      where: 'card_number = ?',
+      whereArgs: [cardNumber],
+      limit: 1,
+    );
+    return res.isNotEmpty;
+  }
+
+  Future<TestedCardModel?> getLastTestedCard() async {
+    final db = await database;
+    final res = await db.query(
+      'tested_cards',
+      where: 'is_last_tested = 1',
+      limit: 1,
+    );
+    if (res.isNotEmpty) {
+      return TestedCardModel.fromMap(res.first);
+    }
+    final fallback = await db.query(
+      'tested_cards',
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    if (fallback.isNotEmpty) {
+      return TestedCardModel.fromMap(fallback.first);
+    }
+    return null;
+  }
+
+  Future<void> clearAllTestedCards() async {
+    final db = await database;
+    await db.delete('tested_cards');
   }
 }

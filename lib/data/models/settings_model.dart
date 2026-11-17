@@ -19,6 +19,7 @@ class SettingsModel {
   final bool injectSaleem;
   final bool injectSaveUsername;
   final bool usePopupSubmit;
+  final bool skipAlreadyTested;
 
   SettingsModel({
     this.url = 'http://a.com',
@@ -41,6 +42,7 @@ class SettingsModel {
     this.injectSaleem = true,
     this.injectSaveUsername = true,
     this.usePopupSubmit = true,
+    this.skipAlreadyTested = false,
   });
 
   SettingsModel copyWith({
@@ -64,6 +66,7 @@ class SettingsModel {
     bool? injectSaleem,
     bool? injectSaveUsername,
     bool? usePopupSubmit,
+    bool? skipAlreadyTested,
   }) {
     return SettingsModel(
       url: url ?? this.url,
@@ -86,6 +89,7 @@ class SettingsModel {
       injectSaleem: injectSaleem ?? this.injectSaleem,
       injectSaveUsername: injectSaveUsername ?? this.injectSaveUsername,
       usePopupSubmit: usePopupSubmit ?? this.usePopupSubmit,
+      skipAlreadyTested: skipAlreadyTested ?? this.skipAlreadyTested,
     );
   }
 
@@ -111,6 +115,7 @@ class SettingsModel {
       'INJECT_SALEEM': injectSaleem.toString(),
       'INJECT_SAVE_USERNAME': injectSaveUsername.toString(),
       'USE_POPUP_SUBMIT': usePopupSubmit.toString(),
+      'SKIP_ALREADY_TESTED': skipAlreadyTested.toString(),
     };
   }
 
@@ -139,6 +144,8 @@ class SettingsModel {
           (map['INJECT_SAVE_USERNAME'] ?? 'true').toLowerCase() == 'true',
       usePopupSubmit:
           (map['USE_POPUP_SUBMIT'] ?? 'true').toLowerCase() == 'true',
+      skipAlreadyTested:
+          (map['SKIP_ALREADY_TESTED'] ?? 'false').toLowerCase() == 'true',
     );
   }
 }
