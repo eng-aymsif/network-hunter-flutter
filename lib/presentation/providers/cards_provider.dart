@@ -266,14 +266,20 @@ class CardsProvider extends ChangeNotifier {
       final bytes = excel.encode();
       if (bytes == null) return false;
 
-      // حفظ الملف في مسار تخزين التطبيق
+      // حفظ الملف باسم احترافي معبر ومزود بالتاريخ والوقت
       final storagePath = await NativeBridge.getAppStoragePath();
       final targetDir = storagePath.isNotEmpty
           ? Directory(storagePath)
           : Directory.systemTemp;
 
-      final filePath =
-          '${targetDir.path}/status_logs_v2.xlsx';
+      final now = DateTime.now();
+      final dateStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final timeStr =
+          '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}-${now.second.toString().padLeft(2, '0')}';
+      final fileName = 'Hunted_Cards_${dateStr}_$timeStr.xlsx';
+
+      final filePath = '${targetDir.path}/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(bytes, flush: true);
 
@@ -282,7 +288,7 @@ class CardsProvider extends ChangeNotifier {
         path: filePath,
         mimeType:
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        title: 'مشاركة كروت الشبكة كملف إكسل',
+        title: 'مشاركة كروت الشبكة المصطادة ($fileName)',
       );
     } catch (e) {
       debugPrint('Export to Excel error: $e');

@@ -9,6 +9,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: fontFamily,
+      fontFamilyFallback: const [fontFamily, 'sans-serif'],
+      textTheme: const TextTheme().apply(fontFamily: fontFamily),
+      primaryTextTheme: const TextTheme().apply(fontFamily: fontFamily),
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.backgroundLight,
@@ -80,6 +83,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: fontFamily,
+      fontFamilyFallback: const [fontFamily, 'sans-serif'],
+      textTheme: const TextTheme().apply(fontFamily: fontFamily),
+      primaryTextTheme: const TextTheme().apply(fontFamily: fontFamily),
       brightness: Brightness.dark,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.backgroundDark,

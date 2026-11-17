@@ -70,7 +70,7 @@ class LogsTab extends StatelessWidget {
         // نافذة السجلات التفاعلية
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
             child: CustomLogViewer(logs: logsProv.logs),
           ),
         ),

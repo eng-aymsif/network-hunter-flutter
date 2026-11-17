@@ -435,57 +435,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              AppStrings.appTitle,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+        titleSpacing: 12,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.radar_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                AppStrings.appTitle,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              '${AppStrings.devName} | ${AppStrings.devPhone}',
-              style: const TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 10.5,
-                color: Colors.white70,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
-          // زر فتح إعدادات الواي فاي
-          IconButton(
-            tooltip: 'لوحة الواي فاي السريعة',
-            icon: const Icon(Icons.wifi_find),
-            onPressed: () => NativeBridge.openWifiSettings(),
-          ),
-
-          // شارة الروت
+          // شارة صلاحيات الروت المدمجة
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            margin: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
               color: engine.isRootAvailable
-                  ? AppColors.successLight
+                  ? AppColors.success.withValues(alpha: 0.22)
                   : Colors.white12,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: engine.isRootAvailable
+                    ? AppColors.success.withValues(alpha: 0.45)
+                    : Colors.white24,
+                width: 0.8,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   engine.isRootAvailable
-                      ? Icons.check_circle
-                      : Icons.info_outline,
+                      ? Icons.check_circle_rounded
+                      : Icons.shield_outlined,
                   size: 13,
                   color: engine.isRootAvailable
                       ? AppColors.success
@@ -496,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   engine.isRootAvailable ? 'Root ✓' : 'Non-Root',
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 10,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                     color: engine.isRootAvailable
                         ? AppColors.success
@@ -507,12 +501,29 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+          // زر فتح إعدادات الواي فاي بحجم رشيق
+          IconButton(
+            tooltip: 'لوحة الواي فاي السريعة',
+            icon: const Icon(Icons.wifi_find, size: 21),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+            onPressed: () => NativeBridge.openWifiSettings(),
+          ),
+
           // زر تبديل الثيم
           IconButton(
-            tooltip: 'تبديل الثيم',
-            icon: Icon(widget.isDark ? Icons.light_mode : Icons.dark_mode),
+            tooltip: 'تبديل المظهر',
+            icon: Icon(
+              widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              size: 21,
+            ),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
             onPressed: widget.onToggleTheme,
           ),
+          const SizedBox(width: 6),
         ],
       ),
 

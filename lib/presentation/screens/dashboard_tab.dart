@@ -347,6 +347,7 @@ class DashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               SizedBox(height: 220, child: CustomLogViewer(logs: logs.logs)),
+              const SizedBox(height: 24),
             ],
           ),
         ),
