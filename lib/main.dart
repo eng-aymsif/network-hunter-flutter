@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:networking/core/services/background_hunter_service.dart';
 import 'package:networking/core/theme/app_theme.dart';
 import 'package:networking/presentation/providers/cards_provider.dart';
 import 'package:networking/presentation/providers/engine_provider.dart';
@@ -7,8 +9,13 @@ import 'package:networking/presentation/providers/logs_provider.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
 import 'package:networking/presentation/screens/home_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    await BackgroundHunterService.initializeService();
+  }
   runApp(const NetworkHunterApp());
 }
 
