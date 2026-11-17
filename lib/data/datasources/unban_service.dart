@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 import '../../core/utils/native_bridge.dart';
 
@@ -22,57 +21,33 @@ class UnbanService {
     return [byte1, ...otherBytes].join(':');
   }
 
-  /// التحقق من توفر صلاحيات الروت (Root Access via su)
+  /// التحقق الفعلي من توفر صلاحيات الروت في النظام
   static Future<bool> isRootAvailable() async {
-    try {
-      final result = await Process.run('su', ['-c', 'id']);
-      return result.exitCode == 0 && result.stdout.toString().contains('uid=0');
-    } catch (_) {
-      return false;
-    }
+    return await NativeBridge.checkRoot();
   }
 
-  /// تنفيذ عملية فك الحظر الهجينة
+  /// تنفيذ عملية فك الحظر الحقيقية والشفافة
   static Future<Map<String, dynamic>> performUnban({void Function(String)? log}) async {
     final newMac = generateValidMac();
     final hasRoot = await isRootAvailable();
 
     if (hasRoot) {
-      log?.call('🔓 تم اكتشاف صلاحية الروت (Root): جاري تعيين MAC جديد: $newMac...');
-      try {
-        final cmd = '''
-          ip link set wlan0 down 2>/dev/null || ifconfig wlan0 down
-          ip link set wlan0 address $newMac 2>/dev/null || ifconfig wlan0 hw ether $newMac
-          ip link set wlan0 up 2>/dev/null || ifconfig wlan0 up
-          ip neigh flush all
-          svc wifi disable && sleep 1 && svc wifi enable
-        ''';
-        final res = await Process.run('su', ['-c', cmd]);
-        if (res.exitCode == 0) {
-          log?.call('✓ تم فك الحظر بنجاح وتغيير MAC إلى: $newMac');
-          return {'success': true, 'mac': newMac, 'method': 'root'};
-        } else {
-          log?.call('⚠️ فشل تغيير الماك عبر الروت، محاولة إعادة تشغيل الواي فاي...');
-        }
-      } catch (e) {
-        log?.call('❌ خطأ أثناء تنفيذ أمر الروت: $e');
+      log?.call('🔓 تم اكتشاف صلاحية الروت (Root): جاري تنفيذ تغيير الماك الفعلي إلى: $newMac...');
+      final res = await NativeBridge.executeRootMacChange(newMac);
+      if (res['success'] == true) {
+        log?.call('✓ تم تغيير MAC كارت الشبكة wlan0 بنجاح عبر أوامر الروت إلى: $newMac');
+        return {'success': true, 'mac': newMac, 'method': 'root'};
+      } else {
+        log?.call('⚠️ فشل أمر الروت في تغيير الماك: ${res['error'] ?? "Unknown"}');
       }
     }
 
-    // الطريقة المخصصة للأجهزة بدون روت
-    log?.call('🔄 وضع بدون روت: جاري قطع وإعادة الاتصال بالواي فاي لتوليد ماك عشوائي جديد...');
-    try {
-      final reconnected = await NativeBridge.reconnectWifi();
-      if (reconnected) {
-        log?.call('✓ تم إعادة تشغيل اتصال الواي فاي بنجاح وتجديد الماك العشوائي.');
-        return {'success': true, 'mac': 'تلقائي (Randomized)', 'method': 'reconnect'};
-      } else {
-        log?.call('ℹ️ يرجى التأكد من تفعيل خيار (الماك العشوائي) في إعدادات شبكة الواي فاي بهاتفك.');
-        return {'success': true, 'mac': 'Randomized', 'method': 'non-root'};
-      }
-    } catch (e) {
-      log?.call('❌ تعذر إكمال إعادة الاتصال: $e');
-      return {'success': false, 'error': e.toString(), 'method': 'non-root'};
-    }
+    // الأجهزة بدون روت
+    log?.call('ℹ️ تنبيه: هذا الهاتف لا يمتلك صلاحيات الروت (Non-Root).');
+    log?.call('📱 في نظام أندرويد الحديث، يمنع النظام التطبيقات من تغيير الماك أو إيقاف الواي فاي بالخلفية بدون روت.');
+    log?.call('🔄 تم فتح لوحة الواي فاي السريعة: يرجى إيقاف الواي فاي وتشغيله يدوياً لتجديد الماك العشوائي.');
+    await NativeBridge.openWifiSettings();
+
+    return {'success': false, 'mac': 'يتطلب تبديل يدوي', 'method': 'manual_toggle'};
   }
 }
