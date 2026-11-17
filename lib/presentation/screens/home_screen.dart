@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_strings.dart';
-import '../../core/utils/native_bridge.dart';
-import '../providers/cards_provider.dart';
-import '../providers/engine_provider.dart';
-import '../providers/logs_provider.dart';
-import '../providers/settings_provider.dart';
-import 'cards_tab.dart';
-import 'dashboard_tab.dart';
-import 'developer_tab.dart';
-import 'logs_tab.dart';
-import 'settings_tab.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/core/utils/native_bridge.dart';
+import 'package:networking/presentation/providers/cards_provider.dart';
+import 'package:networking/presentation/providers/engine_provider.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
+import 'package:networking/presentation/providers/settings_provider.dart';
+import 'package:networking/presentation/screens/cards_tab.dart';
+import 'package:networking/presentation/screens/dashboard_tab.dart';
+import 'package:networking/presentation/screens/developer_tab.dart';
+import 'package:networking/presentation/screens/logs_tab.dart';
+import 'package:networking/presentation/screens/settings_tab.dart';
+import 'package:networking/presentation/widgets/modern_bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -169,9 +170,83 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               await NativeBridge.requestAppPermissions();
+              Future.delayed(const Duration(milliseconds: 1000), () async {
+                final isIgnoring = await NativeBridge.isIgnoringBatteryOptimizations();
+                if (!isIgnoring && mounted) {
+                  _showBatteryOptimizationDialog();
+                }
+              });
             },
             child: const Text(
               'منح الأذونات الآن',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBatteryOptimizationDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(
+          Icons.battery_charging_full_rounded,
+          size: 52,
+          color: AppColors.warning,
+        ),
+        title: const Text(
+          'استثناء تحسين استهلاك البطارية',
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'لكي يستمر فحص الشبكة والاصطياد التلقائي بالعمل في الخلفية دون أن يوقفه نظام أندرويد لتوفير الطاقة:',
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'يرجى اختيار "غير مقيد" (Unrestricted) أو السماح للتطبيق بالعمل في الخلفية بحرية.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('لاحقاً', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await NativeBridge.requestIgnoreBatteryOptimizations();
+            },
+            icon: const Icon(Icons.bolt, size: 18),
+            label: const Text(
+              'ضبط استثناء البطارية',
               style: TextStyle(
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.bold,
@@ -530,48 +605,35 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       bottomNavigationBar: MediaQuery.sizeOf(context).width < 900
-          ? NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: _selectTab,
-              destinations: [
-                const NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
-                  label: AppStrings.tabDashboard,
+          ? ModernBottomNavBar(
+              currentIndex: _currentIndex,
+              onTap: _selectTab,
+              items: [
+                const ModernNavItem(
+                  icon: Icons.dashboard_outlined,
+                  activeIcon: Icons.dashboard_rounded,
+                  label: 'التحكم',
                 ),
-                NavigationDestination(
-                  icon: Badge(
-                    isLabelVisible: cards.totalCount > 0,
-                    label: Text('${cards.totalCount}'),
-                    child: const Icon(Icons.confirmation_number_outlined),
-                  ),
-                  selectedIcon: Badge(
-                    isLabelVisible: cards.totalCount > 0,
-                    label: Text('${cards.totalCount}'),
-                    child: const Icon(
-                      Icons.confirmation_number,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  label: AppStrings.tabCards,
+                ModernNavItem(
+                  icon: Icons.confirmation_number_outlined,
+                  activeIcon: Icons.confirmation_number_rounded,
+                  label: 'الكروت',
+                  badgeCount: cards.totalCount,
                 ),
-                const NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings, color: AppColors.primary),
-                  label: AppStrings.tabSettings,
+                const ModernNavItem(
+                  icon: Icons.tune_outlined,
+                  activeIcon: Icons.tune_rounded,
+                  label: 'الإعدادات',
                 ),
-                const NavigationDestination(
-                  icon: Icon(Icons.terminal_outlined),
-                  selectedIcon: Icon(Icons.terminal, color: AppColors.primary),
-                  label: AppStrings.tabLogs,
+                const ModernNavItem(
+                  icon: Icons.terminal_outlined,
+                  activeIcon: Icons.terminal_rounded,
+                  label: 'السجلات',
                 ),
-                const NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(
-                    Icons.person_rounded,
-                    color: AppColors.primary,
-                  ),
-                  label: AppStrings.tabDeveloper,
+                const ModernNavItem(
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'المطور',
                 ),
               ],
             )
