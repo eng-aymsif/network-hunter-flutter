@@ -212,6 +212,7 @@ class EngineProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+    _engine!.configProvider = () => _settingsProvider!.settings;
   }
 
   Future<void> startHunting() async {

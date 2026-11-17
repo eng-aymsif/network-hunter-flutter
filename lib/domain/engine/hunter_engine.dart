@@ -162,6 +162,12 @@ class HunterEngine {
   final HunterHttpClient httpClient;
 
   HunterBrowserController? browserController;
+  SettingsModel Function()? configProvider;
+  SettingsModel? _activeConfig;
+
+  void updateConfig(SettingsModel newConfig) {
+    _activeConfig = newConfig;
+  }
 
   // Callbacks
   final void Function(String message)? onLog;
@@ -319,6 +325,9 @@ class HunterEngine {
       int attempt = 0;
 
       while (!_stopRequested) {
+        // قراءة الإعدادات المحدثة لحظياً لدعم أي تعديل يجريه المستخدم في التبويب أثناء الفحص
+        final currentConfig = configProvider?.call() ?? _activeConfig ?? config;
+
         // التحقق من الإيقاف المؤقت
         while (_isPaused && !_stopRequested) {
           await delayer.delay(const Duration(milliseconds: 300));
@@ -326,9 +335,9 @@ class HunterEngine {
 
         if (_stopRequested) break;
 
-        if (config.maxAttempts > 0 && attempt >= config.maxAttempts) {
+        if (currentConfig.maxAttempts > 0 && attempt >= currentConfig.maxAttempts) {
           onLog?.call(
-            '🏁 تم الوصول إلى الحد الأقصى للمحاولات المحدد (${config.maxAttempts}).',
+            '🏁 تم الوصول إلى الحد الأقصى للمحاولات المحدد (${currentConfig.maxAttempts}).',
           );
           break;
         }
@@ -336,20 +345,21 @@ class HunterEngine {
         attempt++;
         totalAttempts = attempt;
         onStats?.call(currentNumber, totalAttempts, foundCount, unbanCount);
-        onLog?.call('--- المحاولة $attempt | فحص الرقم: $currentNumber ---');
 
-        // الانتظار الإجباري بين المحاولات
-        if (config.delayBetween > 0) {
-          await delayer.delay(
-            Duration(milliseconds: (config.delayBetween * 1000).toInt()),
-          );
-        }
+        // الانتظار الإجباري الفعلي بين المحاولات لتفادي حظر أجهزة الميكروتك
+        final effectiveDelay = currentConfig.delayBetween > 0 ? currentConfig.delayBetween : 3.0;
+        onLog?.call('⏳ انتظار ${effectiveDelay.toStringAsFixed(1)} ثانية قبل الفحص لحماية الاتصال من حظر الميكروتك...');
+        await delayer.delay(
+          Duration(milliseconds: (effectiveDelay * 1000).toInt()),
+        );
 
         if (_stopRequested) break;
 
+        onLog?.call('--- المحاولة $attempt | فحص الرقم: $currentNumber ---');
+
         // تنفيذ فحص الكرت الحالي عبر آلة الحالة المتسلسلة مع إعادة المحاولة اللانهائية
         await _processCurrentCardWithIndefiniteRetry(
-          config: config,
+          config: currentConfig,
           baseUrl: baseUrl,
           loginUrl: loginUrl,
           logoutUrl: logoutUrl,
