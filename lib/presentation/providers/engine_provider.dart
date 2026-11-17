@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
 
-import '../../core/constants/app_strings.dart';
-import '../../core/utils/native_bridge.dart';
-import '../../core/utils/sound_helper.dart';
-import '../../data/datasources/database_helper.dart';
-import '../../data/datasources/unban_service.dart';
-import '../../domain/engine/hunter_engine.dart';
-import 'cards_provider.dart';
-import 'logs_provider.dart';
-import 'settings_provider.dart';
+import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/core/utils/native_bridge.dart';
+import 'package:networking/core/utils/sound_helper.dart';
+import 'package:networking/data/datasources/database_helper.dart';
+import 'package:networking/data/datasources/unban_service.dart';
+import 'package:networking/domain/engine/hunter_engine.dart';
+import 'package:networking/presentation/providers/cards_provider.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
+import 'package:networking/presentation/providers/settings_provider.dart';
 
 class EngineProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -74,11 +74,10 @@ class EngineProvider extends ChangeNotifier {
         }
       }
 
-      // إذا كنا في حالة فحص أو فك حظر وتغيرت الشبكة عن الشبكة التي بدأنا الاصطياد منها
+      // إذا كانت هناك شبكة مسجلة سابقاً وتغيرت الشبكة عن الشبكة التي بدأنا الاصطياد منها
       if (_huntingSsid.isNotEmpty &&
           newSsid.isNotEmpty &&
-          newSsid != _huntingSsid &&
-          (isRunning || _status == EngineStatus.unbanning)) {
+          newSsid != _huntingSsid) {
         // إيقاف مؤقت للفحص لحين قرار المستخدم
         if (isRunning && !isPaused) {
           pauseHunting();
@@ -92,7 +91,7 @@ class EngineProvider extends ChangeNotifier {
             'والشبكة السابقة التي كان يجري الاصطياد منها هي: "$_huntingSsid"\n'
             'هل تريد المتابعة على الشبكة الجديدة؟';
 
-        _logsProvider?.addLog('⚠️ [تنبيه تغير الشبكة]: تغيرت الشبكة من "$_huntingSsid" إلى "$newSsid". تم إيقاف الفحص مؤقتاً بانتظار قرارك.');
+        _logsProvider?.addLog('⚠️ [تنبيه تغير الشبكة]: تغيرت الشبكة من "$_huntingSsid" إلى "$newSsid". بانتظار قرارك للمتابعة.');
 
         // إطلاق صوت تنبيه عالي وإشعار مستقل خاص بتغير الشبكة
         await SoundHelper.playAlert(isError: true);
@@ -287,8 +286,8 @@ class EngineProvider extends ChangeNotifier {
       _statusText = AppStrings.statusReady;
       notifyListeners();
     } else {
-      _status = EngineStatus.error;
-      _statusText = AppStrings.statusError;
+      // للمستخدم بدون روت، ننتظر قيامه بتبديل الواي فاي أو العودة للتطبيق
+      _statusText = 'بانتظار تجديد الاتصال بالشبكة... 🔄';
       notifyListeners();
     }
   }

@@ -7,7 +7,11 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
+import android.net.NetworkRequest;
+import android.net.TransportInfo;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -34,13 +38,14 @@ public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "com.example.networking/native";
     private MethodChannel methodChannel;
     private BroadcastReceiver wifiNetworkReceiver;
+    private ConnectivityManager.NetworkCallback networkCallback;
     private String lastBroadcastSsid = "";
 
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
         methodChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL);
-        registerWifiBroadcastReceiver();
+        registerWifiListeners();
 
         methodChannel.setMethodCallHandler((call, result) -> {
                     switch (call.method) {
@@ -169,57 +174,133 @@ public class MainActivity extends FlutterActivity {
                 });
     }
 
+    private void registerWifiListeners() {
+        registerWifiBroadcastReceiver();
+        registerNetworkCallback();
+    }
+
+    private void registerNetworkCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    NetworkRequest request = new NetworkRequest.Builder()
+                            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                            .build();
+                    networkCallback = new ConnectivityManager.NetworkCallback() {
+                        @Override
+                        public void onAvailable(@NonNull Network network) {
+                            checkAndNotifySsidChange();
+                        }
+
+                        @Override
+                        public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities capabilities) {
+                            checkAndNotifySsidChange();
+                        }
+
+                        @Override
+                        public void onLost(@NonNull Network network) {
+                            lastBroadcastSsid = "";
+                        }
+                    };
+                    cm.registerNetworkCallback(request, networkCallback);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
     private void registerWifiBroadcastReceiver() {
         if (wifiNetworkReceiver != null) return;
         wifiNetworkReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (intent == null || intent.getAction() == null) return;
-
-                // انتظر لحظة قصيرة حتى يستقر اتصال الـ DHCP/SSID بعد إعادة الاتصال
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    String currentSsid = getCurrentWifiSsid();
-                    if (currentSsid != null && !currentSsid.isEmpty() && !currentSsid.equals("<unknown ssid>")) {
-                        if (!currentSsid.equals(lastBroadcastSsid)) {
-                            lastBroadcastSsid = currentSsid;
-                            if (methodChannel != null) {
-                                Map<String, Object> args = new HashMap<>();
-                                args.put("ssid", currentSsid);
-                                methodChannel.invokeMethod("onWifiNetworkChanged", args);
-                            }
-                        }
-                    } else {
-                        lastBroadcastSsid = "";
-                    }
-                }, 800);
+                checkAndNotifySsidChange();
             }
         };
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        registerReceiver(wifiNetworkReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wifiNetworkReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(wifiNetworkReceiver, filter);
+        }
+    }
+
+    private void checkAndNotifySsidChange() {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            String currentSsid = getCurrentWifiSsid();
+            if (currentSsid != null && !currentSsid.isEmpty() && !currentSsid.equals("<unknown ssid>")) {
+                if (!currentSsid.equals(lastBroadcastSsid)) {
+                    lastBroadcastSsid = currentSsid;
+                    if (methodChannel != null) {
+                        Map<String, Object> args = new HashMap<>();
+                        args.put("ssid", currentSsid);
+                        methodChannel.invokeMethod("onWifiNetworkChanged", args);
+                    }
+                }
+            } else {
+                lastBroadcastSsid = "";
+            }
+        }, 700);
     }
 
     private String getCurrentWifiSsid() {
+        // 1. On Android 10+ (API 29+), get transport info from active network capabilities
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    Network activeNetwork = cm.getActiveNetwork();
+                    if (activeNetwork != null) {
+                        NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
+                        if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                            TransportInfo transportInfo = caps.getTransportInfo();
+                            if (transportInfo instanceof WifiInfo) {
+                                String ssid = cleanSsid(((WifiInfo) transportInfo).getSSID());
+                                if (!ssid.isEmpty()) return ssid;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Fallback to WifiManager
         try {
             WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wifiManager != null && wifiManager.isWifiEnabled()) {
                 WifiInfo info = wifiManager.getConnectionInfo();
-                if (info != null && info.getNetworkId() != -1) {
-                    String ssid = info.getSSID();
-                    if (ssid != null) {
-                        if (ssid.startsWith("\"") && ssid.endsWith("\"") && ssid.length() >= 2) {
-                            ssid = ssid.substring(1, ssid.length() - 1);
-                        }
-                        if (!ssid.equals("<unknown ssid>") && !ssid.equals("0x") && !ssid.isEmpty()) {
-                            return ssid;
-                        }
-                    }
+                if (info != null) {
+                    String ssid = cleanSsid(info.getSSID());
+                    if (!ssid.isEmpty()) return ssid;
                 }
             }
         } catch (Exception ignored) {}
+
         return "";
+    }
+
+    private String cleanSsid(String ssid) {
+        if (ssid == null) return "";
+        if (ssid.startsWith("\"") && ssid.endsWith("\"") && ssid.length() >= 2) {
+            ssid = ssid.substring(1, ssid.length() - 1);
+        }
+        if (ssid.equals("<unknown ssid>") || ssid.equals("0x") || ssid.trim().isEmpty()) {
+            return "";
+        }
+        return ssid;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 101) {
+            if (!isIgnoringBatteryOptimizations()) {
+                new Handler(Looper.getMainLooper()).postDelayed(this::requestIgnoreBatteryOptimizations, 600);
+            }
+        }
     }
 
     @Override
@@ -229,6 +310,15 @@ public class MainActivity extends FlutterActivity {
                 unregisterReceiver(wifiNetworkReceiver);
             } catch (Exception ignored) {}
             wifiNetworkReceiver = null;
+        }
+        if (networkCallback != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    cm.unregisterNetworkCallback(networkCallback);
+                }
+            } catch (Exception ignored) {}
+            networkCallback = null;
         }
         super.onDestroy();
     }
@@ -431,8 +521,7 @@ public class MainActivity extends FlutterActivity {
             }
             if (!perms.isEmpty()) {
                 ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 101);
-            }
-            if (!isIgnoringBatteryOptimizations()) {
+            } else if (!isIgnoringBatteryOptimizations()) {
                 requestIgnoreBatteryOptimizations();
             }
         }
