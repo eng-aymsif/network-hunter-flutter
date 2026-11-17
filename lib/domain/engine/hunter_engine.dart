@@ -316,15 +316,20 @@ class HunterEngine {
 
       // تهيئة محرك المتصفح إذا كان مفعلاً
       if (config.useWebView) {
-        browserController ??= createPlatformBrowserController();
-        if (browserController != null) {
-          await browserController!.init(
-            onJsAlert: (msg) {
-              onLog?.call('💬 [تنبيه صفحة البوابة]: $msg');
-            },
-          );
-          // مسح الكوكيز والبيانات السابقة قبل البدء
-          await _cleanBrowserData();
+        try {
+          browserController ??= createPlatformBrowserController();
+          if (browserController != null) {
+            await browserController!.init(
+              onJsAlert: (msg) {
+                onLog?.call('💬 [تنبيه صفحة البوابة]: $msg');
+              },
+            );
+            // مسح الكوكيز والبيانات السابقة قبل البدء
+            await _cleanBrowserData();
+          }
+        } catch (e) {
+          onLog?.call('ℹ️ تشغيل محرك HTTP فائق السرعة والموثوقية في الخلفية.');
+          browserController = null;
         }
       }
 

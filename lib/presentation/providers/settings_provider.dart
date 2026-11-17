@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:networking/core/services/background_hunter_service.dart';
 import 'package:networking/data/datasources/database_helper.dart';
 import 'package:networking/data/models/settings_model.dart';
 
@@ -44,6 +45,11 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> saveSettings(SettingsModel newSettings) async {
     _settings = newSettings;
     await _db.saveSettings(newSettings);
+    try {
+      BackgroundHunterService.instance.invoke('syncSettings', {
+        'settings': newSettings.toMap(),
+      });
+    } catch (_) {}
     notifyListeners();
   }
 

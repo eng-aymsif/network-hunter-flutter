@@ -76,6 +76,9 @@ Future<void> onBackgroundServiceStart(ServiceInstance service) async {
           )
         : SettingsModel();
 
+    // في خدمة الخلفية المستقلة، نستخدم وضع HTTP الصارم والموثوق لضمان العمل بعد إغلاق التطبيق نهائياً
+    final effectiveSettings = settings.copyWith(useWebView: false);
+
     engine = HunterEngine(
       db: db,
       onLog: (msg) {
@@ -123,14 +126,11 @@ Future<void> onBackgroundServiceStart(ServiceInstance service) async {
         currentStatusMessage = 'جاهز ومستعد 🟢';
         updateNotification();
         service.invoke('engineFinished');
-        if (service is AndroidServiceInstance) {
-          service.stopSelf();
-        }
       },
     );
 
     updateNotification();
-    await engine!.start(settings);
+    await engine!.start(effectiveSettings);
   });
 
   // الاستماع لأمر الإيقاف المؤقت

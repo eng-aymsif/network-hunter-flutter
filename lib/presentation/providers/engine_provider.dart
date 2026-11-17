@@ -327,18 +327,30 @@ class EngineProvider extends ChangeNotifier {
     _statusText = AppStrings.statusRunning;
     notifyListeners();
 
-    // تشغيل خدمة الخلفية الأصلية مع واجهة إشعار المعاينة الحية وحجز WakeLock
-    await NativeBridge.startForegroundService(
-      title: 'Network Hunter • قيد الفحص والاصطياد 🚀',
-      body: 'الكرت الحالي: $_currentNumber | المحاولات: $_totalAttempts | المكتشفة: $_foundCount',
-      subText: _huntingSsid.isNotEmpty ? 'الشبكة: $_huntingSsid' : null,
-    );
+    // تشغيل خدمة الخلفية المستقلة لضمان استمرار الفحص حتى عند إغلاق التطبيق نهائياً
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        !const bool.fromEnvironment('FLUTTER_TEST', defaultValue: false)) {
+      try {
+        final service = BackgroundHunterService.instance;
+        final isServiceRunning = await service.isRunning();
+        if (!isServiceRunning) {
+          await service.startService();
+        }
+        service.invoke('startHunting', {
+          'settings': settings.toMap(),
+        });
+        return;
+      } catch (e) {
+        _logsProvider?.addLog('⚠️ خطأ في تشغيل خدمة الخلفية: $e — جاري التشغيل في الوضع المباشر.');
+      }
+    }
 
+    // وضع احتياطي (أو في بيئة الاختبار)
     try {
       await _engine?.start(settings);
     } finally {
       await NativeBridge.setKeepScreenOn(false);
-      await NativeBridge.stopForegroundService();
       _status = EngineStatus.ready;
       _statusText = AppStrings.statusReady;
       notifyListeners();
@@ -348,6 +360,9 @@ class EngineProvider extends ChangeNotifier {
   void pauseHunting() {
     _status = EngineStatus.paused;
     _statusText = AppStrings.statusPaused;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      BackgroundHunterService.instance.invoke('pauseHunting');
+    }
     _engine?.pause();
     _syncLiveForegroundNotification();
     notifyListeners();
@@ -356,6 +371,9 @@ class EngineProvider extends ChangeNotifier {
   void resumeHunting() {
     _status = EngineStatus.running;
     _statusText = AppStrings.statusRunning;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      BackgroundHunterService.instance.invoke('resumeHunting');
+    }
     _engine?.resume();
     _syncLiveForegroundNotification();
     notifyListeners();
@@ -364,6 +382,9 @@ class EngineProvider extends ChangeNotifier {
   void stopHunting() {
     _status = EngineStatus.stopping;
     _statusText = AppStrings.statusStopping;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      BackgroundHunterService.instance.invoke('stopHunting');
+    }
     _engine?.stop();
     NativeBridge.setKeepScreenOn(false);
     NativeBridge.stopForegroundService();
