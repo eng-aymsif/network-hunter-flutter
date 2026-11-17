@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../domain/engine/hunter_engine.dart';
 
@@ -14,6 +15,7 @@ class EngineStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Color bg;
     Color fg;
 
@@ -36,20 +38,45 @@ class EngineStatusBadge extends StatelessWidget {
         fg = AppColors.success;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+    if (isDark) {
+      bg = fg.withValues(alpha: 0.18);
+      fg = switch (status) {
+        EngineStatus.running || EngineStatus.ready => Colors.green.shade300,
+        EngineStatus.paused => Colors.orange.shade300,
+        EngineStatus.stopping || EngineStatus.error => Colors.red.shade300,
+        EngineStatus.unbanning => Colors.purple.shade200,
+      };
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: fg.withValues(alpha: 0.5)),
       ),
-      child: Text(
-        statusText,
-        style: TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: fg,
+      child: Tooltip(
+        message: statusText,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: Text(
+            statusText,
+            key: ValueKey(status),
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: fg,
+            ),
+          ),
         ),
       ),
     );

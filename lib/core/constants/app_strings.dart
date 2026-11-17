@@ -11,6 +11,7 @@ class AppStrings {
   static const String tabCards = 'الكروت المكتشفة';
   static const String tabSettings = 'الإعدادات';
   static const String tabLogs = 'السجلات المباشرة';
+  static const String tabDeveloper = 'معلومات المطور';
 
   // Status Texts
   static const String statusReady = 'جاهز ومستعد 🟢';

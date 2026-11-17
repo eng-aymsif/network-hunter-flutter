@@ -20,16 +20,8 @@ class StatCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isDark ? Colors.white12 : Colors.grey.shade200,
-          width: 1,
-        ),
-      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -42,28 +34,54 @@ class StatCard extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontFamily: 'Cairo',
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade700,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(icon, size: 16, color: valueColor),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: valueColor.withValues(alpha: isDark ? 0.18 : 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 18, color: valueColor),
+                ),
               ],
             ),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: valueColor,
-                  fontFamily: 'Consolas',
+            const SizedBox(height: 4),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: Align(
+                key: ValueKey(value),
+                alignment: AlignmentDirectional.centerStart,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                      color: valueColor,
+                      fontFamily: 'Consolas',
+                    ),
+                  ),
                 ),
               ),
             ),

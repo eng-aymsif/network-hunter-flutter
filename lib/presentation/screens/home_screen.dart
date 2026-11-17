@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/utils/native_bridge.dart';
@@ -10,6 +11,7 @@ import '../providers/logs_provider.dart';
 import '../providers/settings_provider.dart';
 import 'cards_tab.dart';
 import 'dashboard_tab.dart';
+import 'developer_tab.dart';
 import 'logs_tab.dart';
 import 'settings_tab.dart';
 
@@ -29,13 +31,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  final PageController _pageController = PageController();
+  bool _isShowingNetworkChangeDialog = false;
 
   final List<Widget> _tabs = const [
     DashboardTab(),
     CardsTab(),
     SettingsTab(),
     LogsTab(),
+    DeveloperTab(),
   ];
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -48,7 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       engine.initDependencies(logs: logs, cards: cards, settings: settings);
       logs.addLog('تم بدء تشغيل تطبيق Network Hunter بنجاح.');
-      logs.addLog('صلاحيات الروت: ${engine.isRootAvailable ? "مفعلة ✓" : "غير مفعلة (يعمل بالوضع التلقائي)"}');
+      logs.addLog(
+        'صلاحيات الروت: ${engine.isRootAvailable ? "مفعلة ✓" : "غير مفعلة (يعمل بالوضع التلقائي)"}',
+      );
 
       // التحقق من الأذونات وإظهار الديالوج إذا لم تكن ممنوحة
       final hasPerms = await NativeBridge.checkPermissions();
@@ -66,7 +79,11 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: const Icon(Icons.security, size: 48, color: AppColors.primary),
         title: const Text(
           'أذونات الشبكة وفك الحظر',
-          style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
           textAlign: TextAlign.center,
         ),
         content: const Column(
@@ -83,7 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icon(Icons.wifi, size: 18, color: AppColors.accent),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('التحكم بالواي فاي (لتجديد الماك أدرس العشوائي)', style: TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+                  child: Text(
+                    'التحكم بالواي فاي (لتجديد الماك أدرس العشوائي)',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -93,17 +113,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icon(Icons.location_on, size: 18, color: AppColors.warning),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('الموقع الجغرافي (شرط أساسي في أندرويد لقراءة تفاصيل الشبكة)', style: TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+                  child: Text(
+                    'الموقع الجغرافي (شرط أساسي في أندرويد لقراءة تفاصيل الشبكة)',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                  ),
                 ),
               ],
             ),
             SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.notifications_active, size: 18, color: AppColors.primary),
+                Icon(
+                  Icons.notifications_active,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('الإشعارات الدائمة (لاستمرار الفحص في الخلفية)', style: TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+                  child: Text(
+                    'الإشعارات الدائمة (لعرض المعاينة الحية وتنبيهات الكروت بصوت عالٍ)',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  Icons.battery_charging_full,
+                  size: 18,
+                  color: AppColors.success,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'استثناء تحسين البطارية (Unrestricted Battery) ليعمل في الخلفية بلا توقف',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -123,10 +170,26 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(ctx);
               await NativeBridge.requestAppPermissions();
             },
-            child: const Text('منح الأذونات الآن', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+            child: const Text(
+              'منح الأذونات الآن',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  void _selectTab(int index) {
+    if (index == _currentIndex) return;
+    setState(() => _currentIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
     );
   }
 
@@ -137,10 +200,171 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showNetworkChangeDialog(
+    BuildContext context,
+    EngineProvider engine,
+    String prevSsid,
+    String newSsid,
+  ) {
+    if (_isShowingNetworkChangeDialog) return;
+    _isShowingNetworkChangeDialog = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(
+          Icons.wifi_off_rounded,
+          size: 52,
+          color: AppColors.warning,
+        ),
+        title: const Text(
+          'تنبيه: تغيرت شبكة الواي فاي!',
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: AppColors.danger,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'تم اكتشاف تغير الشبكة المتصل بها أثناء عملية الفحص / فك الحظر:',
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.wifi, size: 18, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'الشبكة الحالية هي: "$newSsid"',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 14),
+                  Row(
+                    children: [
+                      const Icon(Icons.history, size: 18, color: AppColors.danger),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'والسابقة التي كان يجري الاصطياد منها هي: "$prevSsid"',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'هل تريد المتابعة على الشبكة الحالية أم العودة لاختيار الشبكة السابقة؟',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton.icon(
+            onPressed: () async {
+              _isShowingNetworkChangeDialog = false;
+              Navigator.pop(ctx);
+              await engine.cancelOnNetworkChange(openWifi: false);
+            },
+            icon: const Icon(Icons.stop_circle_outlined, color: AppColors.danger),
+            label: const Text(
+              'إيقاف الفحص',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                color: AppColors.danger,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              _isShowingNetworkChangeDialog = false;
+              Navigator.pop(ctx);
+              await engine.cancelOnNetworkChange(openWifi: true);
+            },
+            icon: const Icon(Icons.wifi_find, size: 18),
+            label: const Text(
+              'تغيير الشبكة',
+              style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              _isShowingNetworkChangeDialog = false;
+              Navigator.pop(ctx);
+              await engine.confirmContinueOnNewNetwork();
+            },
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text(
+              'نعم، متابعة',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).then((_) {
+      _isShowingNetworkChangeDialog = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final engine = context.watch<EngineProvider>();
     final cards = context.watch<CardsProvider>();
+
+    if (engine.hasNetworkChangePrompt && !_isShowingNetworkChangeDialog) {
+      final prev = engine.pendingPreviousSsid!;
+      final curr = engine.pendingNewSsid!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && engine.hasNetworkChangePrompt) {
+          _showNetworkChangeDialog(context, engine, prev, curr);
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -149,11 +373,19 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Text(
               AppStrings.appTitle,
-              style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               '${AppStrings.devName} | ${AppStrings.devPhone}',
-              style: const TextStyle(fontFamily: 'Cairo', fontSize: 10, color: Colors.white70),
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10,
+                color: Colors.white70,
+              ),
             ),
           ],
         ),
@@ -170,16 +402,22 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: engine.isRootAvailable ? AppColors.successLight : Colors.white12,
+              color: engine.isRootAvailable
+                  ? AppColors.successLight
+                  : Colors.white12,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  engine.isRootAvailable ? Icons.check_circle : Icons.info_outline,
+                  engine.isRootAvailable
+                      ? Icons.check_circle
+                      : Icons.info_outline,
                   size: 13,
-                  color: engine.isRootAvailable ? AppColors.success : Colors.white70,
+                  color: engine.isRootAvailable
+                      ? AppColors.success
+                      : Colors.white70,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -188,7 +426,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontFamily: 'Cairo',
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: engine.isRootAvailable ? AppColors.success : Colors.white,
+                    color: engine.isRootAvailable
+                        ? AppColors.success
+                        : Colors.white,
                   ),
                 ),
               ],
@@ -211,47 +451,152 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
 
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _tabs,
-      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final useRail = constraints.maxWidth >= 900;
+          final extendedRail = constraints.maxWidth >= 1200;
 
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
+          return Row(
+            children: [
+              if (useRail) ...[
+                NavigationRail(
+                  selectedIndex: _currentIndex,
+                  onDestinationSelected: _selectTab,
+                  extended: extendedRail,
+                  labelType: extendedRail
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  minWidth: 80,
+                  minExtendedWidth: 232,
+                  destinations: [
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard),
+                      label: Text(AppStrings.tabDashboard),
+                    ),
+                    NavigationRailDestination(
+                      icon: Badge(
+                        isLabelVisible: cards.totalCount > 0,
+                        label: Text('${cards.totalCount}'),
+                        child: const Icon(Icons.confirmation_number_outlined),
+                      ),
+                      selectedIcon: Badge(
+                        isLabelVisible: cards.totalCount > 0,
+                        label: Text('${cards.totalCount}'),
+                        child: const Icon(Icons.confirmation_number),
+                      ),
+                      label: const Text(AppStrings.tabCards),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: Text(AppStrings.tabSettings),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.terminal_outlined),
+                      selectedIcon: Icon(Icons.terminal),
+                      label: Text(AppStrings.tabLogs),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.person_outline_rounded),
+                      selectedIcon: Icon(Icons.person_rounded),
+                      label: Text(AppStrings.tabDeveloper),
+                    ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+              ],
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1600),
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (index) {
+                        if (_currentIndex != index) {
+                          setState(() => _currentIndex = index);
+                        }
+                      },
+                      children: [
+                        for (final tab in _tabs) _KeepAlivePage(child: tab),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
         },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
-            label: AppStrings.tabDashboard,
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: cards.totalCount > 0,
-              label: Text('${cards.totalCount}'),
-              child: const Icon(Icons.confirmation_number_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: cards.totalCount > 0,
-              label: Text('${cards.totalCount}'),
-              child: const Icon(Icons.confirmation_number, color: AppColors.primary),
-            ),
-            label: AppStrings.tabCards,
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: AppColors.primary),
-            label: AppStrings.tabSettings,
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.terminal_outlined),
-            selectedIcon: Icon(Icons.terminal, color: AppColors.primary),
-            label: AppStrings.tabLogs,
-          ),
-        ],
       ),
+      bottomNavigationBar: MediaQuery.sizeOf(context).width < 900
+          ? NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: _selectTab,
+              destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
+                  label: AppStrings.tabDashboard,
+                ),
+                NavigationDestination(
+                  icon: Badge(
+                    isLabelVisible: cards.totalCount > 0,
+                    label: Text('${cards.totalCount}'),
+                    child: const Icon(Icons.confirmation_number_outlined),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible: cards.totalCount > 0,
+                    label: Text('${cards.totalCount}'),
+                    child: const Icon(
+                      Icons.confirmation_number,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  label: AppStrings.tabCards,
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings, color: AppColors.primary),
+                  label: AppStrings.tabSettings,
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.terminal_outlined),
+                  selectedIcon: Icon(Icons.terminal, color: AppColors.primary),
+                  label: AppStrings.tabLogs,
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(
+                    Icons.person_rounded,
+                    color: AppColors.primary,
+                  ),
+                  label: AppStrings.tabDeveloper,
+                ),
+              ],
+            )
+          : null,
     );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin<_KeepAlivePage> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

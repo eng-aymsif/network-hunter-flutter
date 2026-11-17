@@ -39,23 +39,45 @@ class CardsTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Row(
+                  Wrap(
                     children: [
                       Chip(
-                        label: Text('الإجمالي: ${cardsProv.totalCount}', style: const TextStyle(fontFamily: 'Cairo', fontSize: 11)),
-                        backgroundColor: AppColors.primaryLight,
+                        label: Text(
+                          'الإجمالي: ${cardsProv.totalCount}',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                          ),
+                        ),
+                        backgroundColor: Theme.of(context).brightness ==
+                                Brightness.dark
+                            ? AppColors.primary.withValues(alpha: 0.18)
+                            : AppColors.primaryLight,
                       ),
                       const SizedBox(width: 6),
                       Chip(
-                        label: Text('غير مستخدم: ${cardsProv.unusedCount}', style: const TextStyle(fontFamily: 'Cairo', fontSize: 11, color: AppColors.success)),
-                        backgroundColor: AppColors.successLight,
+                        label: Text(
+                          'غير مستخدم: ${cardsProv.unusedCount}',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            color: AppColors.success,
+                          ),
+                        ),
+                        backgroundColor: Theme.of(context).brightness ==
+                                Brightness.dark
+                            ? AppColors.success.withValues(alpha: 0.18)
+                            : AppColors.successLight,
                       ),
                     ],
                   ),
-                  Row(
+                  Wrap(
                     children: [
                       IconButton(
                         tooltip: 'تصدير كـ CSV',
