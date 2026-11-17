@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../../data/datasources/database_helper.dart';
-import '../../data/models/settings_model.dart';
+import 'package:networking/data/datasources/database_helper.dart';
+import 'package:networking/data/models/settings_model.dart';
 
 class SettingsProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;

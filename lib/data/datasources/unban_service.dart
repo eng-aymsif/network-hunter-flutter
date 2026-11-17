@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../../core/utils/native_bridge.dart';
+import 'package:networking/core/utils/native_bridge.dart';
 
 class UnbanService {
   static final Random _random = Random();

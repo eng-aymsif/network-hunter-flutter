@@ -1,5 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'native_bridge.dart';
+import 'package:networking/core/utils/native_bridge.dart';
 
 class SoundHelper {
   static final AudioPlayer _player = AudioPlayer();

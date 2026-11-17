@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../domain/engine/hunter_engine.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/domain/engine/hunter_engine.dart';
 
 class EngineStatusBadge extends StatelessWidget {
   final EngineStatus status;

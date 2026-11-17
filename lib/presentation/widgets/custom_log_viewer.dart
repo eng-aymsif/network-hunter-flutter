@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import '../providers/logs_provider.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
 
 class CustomLogViewer extends StatefulWidget {
   final List<LogEntry> logs;

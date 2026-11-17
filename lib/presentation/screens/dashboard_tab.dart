@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_strings.dart';
-import '../providers/engine_provider.dart';
-import '../providers/logs_provider.dart';
-import '../providers/settings_provider.dart';
-import '../widgets/engine_status_badge.dart';
-import '../widgets/stat_card.dart';
-import '../widgets/custom_log_viewer.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/presentation/providers/engine_provider.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
+import 'package:networking/presentation/providers/settings_provider.dart';
+import 'package:networking/presentation/widgets/engine_status_badge.dart';
+import 'package:networking/presentation/widgets/stat_card.dart';
+import 'package:networking/presentation/widgets/custom_log_viewer.dart';
 
 class DashboardTab extends StatelessWidget {
   const DashboardTab({super.key});

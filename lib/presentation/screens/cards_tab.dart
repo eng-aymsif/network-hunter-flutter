@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
-import '../providers/cards_provider.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/presentation/providers/cards_provider.dart';
 
 class CardsTab extends StatelessWidget {
   const CardsTab({super.key});

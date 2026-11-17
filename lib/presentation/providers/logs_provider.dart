@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import '../../core/utils/native_bridge.dart';
+import 'package:networking/core/utils/native_bridge.dart';
 
 class LogEntry {
   final String time;

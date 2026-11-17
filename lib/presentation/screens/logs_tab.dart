@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_strings.dart';
-import '../providers/logs_provider.dart';
-import '../widgets/custom_log_viewer.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
+import 'package:networking/presentation/widgets/custom_log_viewer.dart';
 
 class LogsTab extends StatelessWidget {
   const LogsTab({super.key});

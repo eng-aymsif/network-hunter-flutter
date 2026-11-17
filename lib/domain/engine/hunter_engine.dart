@@ -3,13 +3,13 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import '../../core/utils/number_formatter.dart';
-import '../../data/models/settings_model.dart';
-import 'hunter_adapters.dart';
-import 'hunter_interfaces.dart';
+import 'package:networking/core/utils/number_formatter.dart';
+import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/domain/engine/hunter_adapters.dart';
+import 'package:networking/domain/engine/hunter_interfaces.dart';
 
 // Re-export interfaces and enums for consumers
-export 'hunter_interfaces.dart';
+export 'package:networking/domain/engine/hunter_interfaces.dart';
 
 /// Default connectivity checker using direct TCP socket probe to target host & port
 class DefaultConnectivityChecker implements ConnectivityChecker {

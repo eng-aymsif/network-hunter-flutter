@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'core/theme/app_theme.dart';
-import 'presentation/providers/cards_provider.dart';
-import 'presentation/providers/engine_provider.dart';
-import 'presentation/providers/logs_provider.dart';
-import 'presentation/providers/settings_provider.dart';
-import 'presentation/screens/home_screen.dart';
+import 'package:networking/core/theme/app_theme.dart';
+import 'package:networking/presentation/providers/cards_provider.dart';
+import 'package:networking/presentation/providers/engine_provider.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
+import 'package:networking/presentation/providers/settings_provider.dart';
+import 'package:networking/presentation/screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

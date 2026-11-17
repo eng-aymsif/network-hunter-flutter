@@ -1,4 +1,4 @@
-import 'hunter_interfaces.dart';
+import 'package:networking/domain/engine/hunter_interfaces.dart';
 
 HunterBrowserController? createPlatformBrowserController() => null;
 HunterSoundPlayer createPlatformSoundPlayer() => const StubSoundPlayer();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
+import 'package:networking/core/constants/app_colors.dart';
 
 class AppTheme {
   static const String fontFamily = 'Cairo';

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
-import '../models/card_model.dart';
-import '../models/settings_model.dart';
-import '../../domain/engine/hunter_interfaces.dart';
+import 'package:networking/data/models/card_model.dart';
+import 'package:networking/data/models/settings_model.dart';
+import 'package:networking/domain/engine/hunter_interfaces.dart';
 
 class DatabaseHelper implements HunterDatabase {
   static final DatabaseHelper instance = DatabaseHelper._internal();

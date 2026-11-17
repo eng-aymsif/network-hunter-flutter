@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../../core/utils/native_bridge.dart';
-import '../../data/datasources/database_helper.dart';
-import '../../data/models/card_model.dart';
+import 'package:networking/core/utils/native_bridge.dart';
+import 'package:networking/data/datasources/database_helper.dart';
+import 'package:networking/data/models/card_model.dart';
 
 class CardsProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_strings.dart';
-import '../../core/utils/native_bridge.dart';
-import '../providers/settings_provider.dart';
+import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/core/utils/native_bridge.dart';
+import 'package:networking/presentation/providers/settings_provider.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:networking/core/constants/app_strings.dart';
 import 'package:networking/domain/engine/hunter_engine.dart';
 import 'package:networking/main.dart';
 import 'package:networking/presentation/widgets/engine_status_badge.dart';
@@ -95,7 +94,7 @@ void main() {
     await tester.pumpWidget(const NetworkHunterApp());
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text(AppStrings.tabSettings));
+    await tester.tap(find.text('الإعدادات'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('إعدادات الشبكة ومسارات صفحة الدخول'), findsOneWidget);
@@ -103,22 +102,22 @@ void main() {
     final urlField = find.byType(TextFormField).first;
     await tester.enterText(urlField, 'https://network.local');
 
-    await tester.tap(find.text(AppStrings.tabDashboard));
+    await tester.tap(find.text('التحكم'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text(AppStrings.tabSettings));
+    await tester.tap(find.text('الإعدادات'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
     final settingsField = tester.widget<TextFormField>(urlField);
     expect(settingsField.controller!.text, 'https://network.local');
 
-    await tester.tap(find.text(AppStrings.tabCards));
+    await tester.tap(find.text('الكروت'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text(AppStrings.tabLogs));
+    await tester.tap(find.text('السجلات'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);

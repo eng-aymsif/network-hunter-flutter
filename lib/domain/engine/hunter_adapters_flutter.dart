@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../../core/utils/sound_helper.dart';
-import '../../data/datasources/unban_service.dart';
-import 'hunter_interfaces.dart';
+import 'package:networking/core/utils/sound_helper.dart';
+import 'package:networking/data/datasources/unban_service.dart';
+import 'package:networking/domain/engine/hunter_interfaces.dart';
 
 HunterBrowserController? createPlatformBrowserController() => FlutterHunterBrowserController();
 HunterSoundPlayer createPlatformSoundPlayer() => FlutterHunterSoundPlayer();
