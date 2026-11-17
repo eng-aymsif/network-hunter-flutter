@@ -16,7 +16,13 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
-    _settings = await _db.loadSettings();
+    var loaded = await _db.loadSettings();
+    // إذا كانت القيمة المحفوظة سابقاً 1 بسبب التقييد القديم، نعيدها إلى 0 (بلا توقف)
+    if (loaded.maxAttempts == 1) {
+      loaded = loaded.copyWith(maxAttempts: 0);
+      await _db.saveSettings(loaded);
+    }
+    _settings = loaded;
     _isLoaded = true;
     notifyListeners();
   }

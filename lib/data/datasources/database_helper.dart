@@ -3,8 +3,9 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../models/card_model.dart';
 import '../models/settings_model.dart';
+import '../../domain/engine/hunter_interfaces.dart';
 
-class DatabaseHelper {
+class DatabaseHelper implements HunterDatabase {
   static final DatabaseHelper instance = DatabaseHelper._internal();
   DatabaseHelper._internal();
 
@@ -57,6 +58,7 @@ class DatabaseHelper {
 
   // ==================== الكروت (Found Cards) ====================
 
+  @override
   Future<bool> saveFoundCard(String cardNumber, String loginUrl, {String notes = ''}) async {
     final db = await database;
     try {
@@ -108,6 +110,7 @@ class DatabaseHelper {
 
   // ==================== حالة الفحص (Hunter State) ====================
 
+  @override
   Future<void> setState(String key, String value) async {
     final db = await database;
     await db.insert(
@@ -117,6 +120,7 @@ class DatabaseHelper {
     );
   }
 
+  @override
   Future<String?> getState(String key, [String? defaultValue]) async {
     final db = await database;
     final res = await db.query('hunter_state', columns: ['value'], where: 'key = ?', whereArgs: [key]);

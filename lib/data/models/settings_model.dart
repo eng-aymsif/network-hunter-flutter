@@ -16,6 +16,9 @@ class SettingsModel {
   final String passwordField;
   final String customPassword;
   final bool useWebView;
+  final bool injectSaleem;
+  final bool injectSaveUsername;
+  final bool usePopupSubmit;
 
   SettingsModel({
     this.url = 'http://a.com',
@@ -23,9 +26,9 @@ class SettingsModel {
     this.logoutPath = '/logout',
     this.startNumber = '301007757',
     this.maxAttempts = 0,
-    this.delayBetween = 2.0,
-    this.navTimeout = 15000,
-    this.postNavWait = 3.0,
+    this.delayBetween = 3.0,
+    this.navTimeout = 30000,
+    this.postNavWait = 7.0,
     this.unbanOnError = true,
     this.unbanMaxRetries = 3,
     this.unbanCooldown = 5.0,
@@ -35,6 +38,9 @@ class SettingsModel {
     this.passwordField = 'password',
     this.customPassword = '',
     this.useWebView = true, // الافتراضي هو محاكي المتصفح لمطابقة بايثون 100%
+    this.injectSaleem = true,
+    this.injectSaveUsername = true,
+    this.usePopupSubmit = true,
   });
 
   SettingsModel copyWith({
@@ -55,6 +61,9 @@ class SettingsModel {
     String? passwordField,
     String? customPassword,
     bool? useWebView,
+    bool? injectSaleem,
+    bool? injectSaveUsername,
+    bool? usePopupSubmit,
   }) {
     return SettingsModel(
       url: url ?? this.url,
@@ -74,6 +83,9 @@ class SettingsModel {
       passwordField: passwordField ?? this.passwordField,
       customPassword: customPassword ?? this.customPassword,
       useWebView: useWebView ?? this.useWebView,
+      injectSaleem: injectSaleem ?? this.injectSaleem,
+      injectSaveUsername: injectSaveUsername ?? this.injectSaveUsername,
+      usePopupSubmit: usePopupSubmit ?? this.usePopupSubmit,
     );
   }
 
@@ -96,6 +108,9 @@ class SettingsModel {
       'password_field': passwordField,
       'custom_password': customPassword,
       'use_web_view': useWebView.toString(),
+      'INJECT_SALEEM': injectSaleem.toString(),
+      'INJECT_SAVE_USERNAME': injectSaveUsername.toString(),
+      'USE_POPUP_SUBMIT': usePopupSubmit.toString(),
     };
   }
 
@@ -106,18 +121,24 @@ class SettingsModel {
       logoutPath: map['LOGOUT_PATH'] ?? '/logout',
       startNumber: map['START_NUMBER'] ?? '301007757',
       maxAttempts: int.tryParse(map['MAX_ATTEMPTS'] ?? '0') ?? 0,
-      delayBetween: double.tryParse(map['DELAY_BETWEEN'] ?? '2.0') ?? 2.0,
-      navTimeout: int.tryParse(map['NAV_TIMEOUT'] ?? '15000') ?? 15000,
-      postNavWait: double.tryParse(map['POST_NAV_WAIT'] ?? '3.0') ?? 3.0,
+      delayBetween: double.tryParse(map['DELAY_BETWEEN'] ?? '3.0') ?? 3.0,
+      navTimeout: int.tryParse(map['NAV_TIMEOUT'] ?? '30000') ?? 30000,
+      postNavWait: double.tryParse(map['POST_NAV_WAIT'] ?? '7.0') ?? 7.0,
       unbanOnError: (map['UNBAN_ON_ERROR'] ?? 'true').toLowerCase() == 'true',
       unbanMaxRetries: int.tryParse(map['UNBAN_MAX_RETRIES'] ?? '3') ?? 3,
       unbanCooldown: double.tryParse(map['UNBAN_COOLDOWN'] ?? '5.0') ?? 5.0,
-      maxConsecutiveErrors: int.tryParse(map['MAX_CONSECUTIVE_ERRORS'] ?? '10') ?? 10,
+      maxConsecutiveErrors:
+          int.tryParse(map['MAX_CONSECUTIVE_ERRORS'] ?? '10') ?? 10,
       resumeSaved: (map['resume_saved'] ?? 'true').toLowerCase() == 'true',
       usernameField: map['username_field'] ?? 'username',
       passwordField: map['password_field'] ?? 'password',
       customPassword: map['custom_password'] ?? '',
       useWebView: (map['use_web_view'] ?? 'true').toLowerCase() == 'true',
+      injectSaleem: (map['INJECT_SALEEM'] ?? 'true').toLowerCase() == 'true',
+      injectSaveUsername:
+          (map['INJECT_SAVE_USERNAME'] ?? 'true').toLowerCase() == 'true',
+      usePopupSubmit:
+          (map['USE_POPUP_SUBMIT'] ?? 'true').toLowerCase() == 'true',
     );
   }
 }
