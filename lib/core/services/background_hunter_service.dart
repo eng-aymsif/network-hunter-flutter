@@ -4,6 +4,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/core/utils/sound_helper.dart';
 import 'package:networking/data/datasources/database_helper.dart';
+import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/domain/engine/hunter_engine.dart';
 
@@ -36,6 +37,7 @@ class BackgroundHunterService {
 @pragma('vm:entry-point')
 Future<void> onBackgroundServiceStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
+  await HiveHelper.instance.init();
 
   final db = DatabaseHelper.instance;
   HunterEngine? engine;

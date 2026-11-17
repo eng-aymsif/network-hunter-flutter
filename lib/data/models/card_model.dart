@@ -1,9 +1,25 @@
+import 'package:hive/hive.dart';
+
+part 'card_model.g.dart';
+
+@HiveType(typeId: 0)
 class CardModel {
+  @HiveField(0)
   final int? id;
+
+  @HiveField(1)
   final String cardNumber;
-  final String loginUrl;
+
+  @HiveField(2)
   final String foundAt;
+
+  @HiveField(3)
   final bool isUsed;
+
+  @HiveField(4)
+  final String loginUrl;
+
+  @HiveField(5)
   final String notes;
 
   CardModel({

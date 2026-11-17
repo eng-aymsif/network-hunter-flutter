@@ -1,24 +1,70 @@
+import 'package:hive/hive.dart';
+
+part 'settings_model.g.dart';
+
+@HiveType(typeId: 1)
 class SettingsModel {
+  @HiveField(0)
   final String url;
+
+  @HiveField(1)
   final String loginPath;
+
+  @HiveField(2)
   final String logoutPath;
+
+  @HiveField(3)
   final String startNumber;
+
+  @HiveField(4)
   final int maxAttempts;
+
+  @HiveField(5)
   final double delayBetween;
+
+  @HiveField(6)
   final int navTimeout;
+
+  @HiveField(7)
   final double postNavWait;
+
+  @HiveField(8)
   final bool unbanOnError;
+
+  @HiveField(9)
   final int unbanMaxRetries;
+
+  @HiveField(10)
   final double unbanCooldown;
+
+  @HiveField(11)
   final int maxConsecutiveErrors;
-  final bool resumeSaved;
+
+  @HiveField(12)
   final String usernameField;
+
+  @HiveField(13)
   final String passwordField;
+
+  @HiveField(14)
   final String customPassword;
+
+  @HiveField(15)
   final bool useWebView;
+
+  @HiveField(16)
   final bool injectSaleem;
+
+  @HiveField(17)
   final bool injectSaveUsername;
+
+  @HiveField(18)
   final bool usePopupSubmit;
+
+  @HiveField(19)
+  final bool resumeSaved;
+
+  @HiveField(20)
   final bool skipAlreadyTested;
 
   SettingsModel({
@@ -38,7 +84,7 @@ class SettingsModel {
     this.usernameField = 'username',
     this.passwordField = 'password',
     this.customPassword = '',
-    this.useWebView = true, // الافتراضي هو محاكي المتصفح لمطابقة بايثون 100%
+    this.useWebView = true,
     this.injectSaleem = true,
     this.injectSaveUsername = true,
     this.usePopupSubmit = true,
@@ -103,49 +149,64 @@ class SettingsModel {
       'DELAY_BETWEEN': delayBetween.toString(),
       'NAV_TIMEOUT': navTimeout.toString(),
       'POST_NAV_WAIT': postNavWait.toString(),
-      'UNBAN_ON_ERROR': unbanOnError.toString(),
+      'UNBAN_ON_ERROR': unbanOnError ? '1' : '0',
       'UNBAN_MAX_RETRIES': unbanMaxRetries.toString(),
       'UNBAN_COOLDOWN': unbanCooldown.toString(),
       'MAX_CONSECUTIVE_ERRORS': maxConsecutiveErrors.toString(),
-      'resume_saved': resumeSaved.toString(),
-      'username_field': usernameField,
-      'password_field': passwordField,
-      'custom_password': customPassword,
-      'use_web_view': useWebView.toString(),
-      'INJECT_SALEEM': injectSaleem.toString(),
-      'INJECT_SAVE_USERNAME': injectSaveUsername.toString(),
-      'USE_POPUP_SUBMIT': usePopupSubmit.toString(),
-      'SKIP_ALREADY_TESTED': skipAlreadyTested.toString(),
+      'RESUME_SAVED': resumeSaved ? '1' : '0',
+      'USERNAME_FIELD': usernameField,
+      'PASSWORD_FIELD': passwordField,
+      'CUSTOM_PASSWORD': customPassword,
+      'USE_WEBVIEW': useWebView ? '1' : '0',
+      'INJECT_SALEEM': injectSaleem ? '1' : '0',
+      'INJECT_SAVE_USERNAME': injectSaveUsername ? '1' : '0',
+      'USE_POPUP_SUBMIT': usePopupSubmit ? '1' : '0',
+      'SKIP_ALREADY_TESTED': skipAlreadyTested ? '1' : '0',
     };
   }
 
-  factory SettingsModel.fromMap(Map<String, String> map) {
+  factory SettingsModel.fromMap(Map<String, dynamic> map) {
+    bool parseBool(dynamic val, bool def) {
+      if (val == null) return def;
+      if (val is bool) return val;
+      final s = val.toString().trim();
+      return s == '1' || s.toLowerCase() == 'true';
+    }
+
+    int parseInt(dynamic val, int def) {
+      if (val == null) return def;
+      if (val is int) return val;
+      return int.tryParse(val.toString()) ?? def;
+    }
+
+    double parseDouble(dynamic val, double def) {
+      if (val == null) return def;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? def;
+    }
+
     return SettingsModel(
-      url: map['URL'] ?? 'http://a.com',
-      loginPath: map['LOGIN_PATH'] ?? '/login',
-      logoutPath: map['LOGOUT_PATH'] ?? '/logout',
-      startNumber: map['START_NUMBER'] ?? '',
-      maxAttempts: int.tryParse(map['MAX_ATTEMPTS'] ?? '0') ?? 0,
-      delayBetween: double.tryParse(map['DELAY_BETWEEN'] ?? '10.0') ?? 10.0,
-      navTimeout: int.tryParse(map['NAV_TIMEOUT'] ?? '30000') ?? 30000,
-      postNavWait: double.tryParse(map['POST_NAV_WAIT'] ?? '7.0') ?? 7.0,
-      unbanOnError: (map['UNBAN_ON_ERROR'] ?? 'true').toLowerCase() == 'true',
-      unbanMaxRetries: int.tryParse(map['UNBAN_MAX_RETRIES'] ?? '3') ?? 3,
-      unbanCooldown: double.tryParse(map['UNBAN_COOLDOWN'] ?? '5.0') ?? 5.0,
-      maxConsecutiveErrors:
-          int.tryParse(map['MAX_CONSECUTIVE_ERRORS'] ?? '10') ?? 10,
-      resumeSaved: (map['resume_saved'] ?? 'true').toLowerCase() == 'true',
-      usernameField: map['username_field'] ?? 'username',
-      passwordField: map['password_field'] ?? 'password',
-      customPassword: map['custom_password'] ?? '',
-      useWebView: (map['use_web_view'] ?? 'true').toLowerCase() == 'true',
-      injectSaleem: (map['INJECT_SALEEM'] ?? 'true').toLowerCase() == 'true',
-      injectSaveUsername:
-          (map['INJECT_SAVE_USERNAME'] ?? 'true').toLowerCase() == 'true',
-      usePopupSubmit:
-          (map['USE_POPUP_SUBMIT'] ?? 'true').toLowerCase() == 'true',
-      skipAlreadyTested:
-          (map['SKIP_ALREADY_TESTED'] ?? 'false').toLowerCase() == 'true',
+      url: map['URL']?.toString() ?? 'http://a.com',
+      loginPath: map['LOGIN_PATH']?.toString() ?? '/login',
+      logoutPath: map['LOGOUT_PATH']?.toString() ?? '/logout',
+      startNumber: map['START_NUMBER']?.toString() ?? '',
+      maxAttempts: parseInt(map['MAX_ATTEMPTS'], 0),
+      delayBetween: parseDouble(map['DELAY_BETWEEN'], 10.0),
+      navTimeout: parseInt(map['NAV_TIMEOUT'], 30000),
+      postNavWait: parseDouble(map['POST_NAV_WAIT'], 7.0),
+      unbanOnError: parseBool(map['UNBAN_ON_ERROR'], true),
+      unbanMaxRetries: parseInt(map['UNBAN_MAX_RETRIES'], 3),
+      unbanCooldown: parseDouble(map['UNBAN_COOLDOWN'], 5.0),
+      maxConsecutiveErrors: parseInt(map['MAX_CONSECUTIVE_ERRORS'], 10),
+      resumeSaved: parseBool(map['RESUME_SAVED'], true),
+      usernameField: map['USERNAME_FIELD']?.toString() ?? 'username',
+      passwordField: map['PASSWORD_FIELD']?.toString() ?? 'password',
+      customPassword: map['CUSTOM_PASSWORD']?.toString() ?? '',
+      useWebView: parseBool(map['USE_WEBVIEW'], true),
+      injectSaleem: parseBool(map['INJECT_SALEEM'], true),
+      injectSaveUsername: parseBool(map['INJECT_SAVE_USERNAME'], true),
+      usePopupSubmit: parseBool(map['USE_POPUP_SUBMIT'], true),
+      skipAlreadyTested: parseBool(map['SKIP_ALREADY_TESTED'], false),
     );
   }
 }

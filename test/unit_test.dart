@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:test/test.dart';
 import 'package:networking/core/utils/number_formatter.dart';
+import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/data/datasources/unban_service.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
@@ -114,6 +116,101 @@ void main() {
       expect(copied.isLastTested, isFalse);
       expect(copied.status, 'success');
       expect(copied.cardNumber, '201150010');
+    });
+  });
+
+  group('HiveHelper CRUD Tests', () {
+    late HiveHelper helper;
+
+    setUpAll(() async {
+      final temp = Directory.systemTemp.createTempSync('hive_unit_tests_');
+      helper = HiveHelper.instance;
+      await helper.init(temp.path);
+    });
+
+    tearDown(() async {
+      await helper.clearAllCards();
+      await helper.clearAllTestedCards();
+    });
+
+    test('Found cards CRUD operations', () async {
+      // 1. Insert (saveFoundCard)
+      final saved = await helper.saveFoundCard('123456', 'http://a.com/status', notes: 'تجربة');
+      expect(saved, isTrue);
+
+      // Duplicate protection
+      final duplicate = await helper.saveFoundCard('123456', 'http://a.com/status');
+      expect(duplicate, isFalse);
+
+      // 2. Read (getAllFoundCards)
+      var cards = await helper.getAllFoundCards();
+      expect(cards.length, 1);
+      final cardId = cards.first.id!;
+      expect(cards.first.cardNumber, '123456');
+
+      // 3. Update (toggleCardUsed, updateCardNotes)
+      final newStatus = await helper.toggleCardUsed(cardId);
+      expect(newStatus, isTrue);
+      await helper.updateCardNotes(cardId, 'ملاحظة جديدة');
+
+      cards = await helper.getAllFoundCards();
+      expect(cards.first.isUsed, isTrue);
+      expect(cards.first.notes, 'ملاحظة جديدة');
+
+      // 4. Delete (deleteCard)
+      await helper.deleteCard(cardId);
+      cards = await helper.getAllFoundCards();
+      expect(cards.isEmpty, isTrue);
+    });
+
+    test('Tested cards CRUD and skip check operations', () async {
+      // 1. Insert tested cards
+      await helper.recordTestedCard(
+        cardNumber: '999001',
+        status: 'failed',
+        portalMessage: 'رمز الدخول خاطئ',
+        isLast: true,
+      );
+
+      // 2. Read
+      expect(await helper.isCardAlreadyTested('999001'), isTrue);
+      expect(await helper.isCardAlreadyTested('999002'), isFalse);
+
+      var list = await helper.getAllTestedCards();
+      expect(list.length, 1);
+      expect(list.first.isLastTested, isTrue);
+
+      // Add another tested card
+      await helper.recordTestedCard(
+        cardNumber: '999002',
+        status: 'success',
+        portalMessage: 'تم بنجاح',
+        isLast: true,
+      );
+
+      list = await helper.getAllTestedCards();
+      expect(list.length, 2);
+      final first = list.firstWhere((c) => c.cardNumber == '999001');
+      final second = list.firstWhere((c) => c.cardNumber == '999002');
+      expect(first.isLastTested, isFalse);
+      expect(second.isLastTested, isTrue);
+
+      // 3. Clear
+      await helper.clearAllTestedCards();
+      expect(await helper.isCardAlreadyTested('999001'), isFalse);
+      list = await helper.getAllTestedCards();
+      expect(list.isEmpty, isTrue);
+    });
+
+    test('State and Settings operations', () async {
+      await helper.setState('last_tested_number', '555');
+      expect(await helper.getState('last_tested_number'), '555');
+
+      final settings = SettingsModel(url: 'http://custom.com', startNumber: '777');
+      await helper.saveSettings(settings);
+      final loaded = await helper.loadSettings();
+      expect(loaded.url, 'http://custom.com');
+      expect(loaded.startNumber, '777');
     });
   });
 }

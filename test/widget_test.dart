@@ -1,16 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/domain/engine/hunter_engine.dart';
 import 'package:networking/main.dart';
 import 'package:networking/presentation/widgets/engine_status_badge.dart';
 import 'package:networking/presentation/widgets/stat_card.dart';
 import 'package:networking/core/constants/app_colors.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+  setUpAll(() async {
+    final temp = Directory.systemTemp.createTempSync('widget_test_hive_');
+    await HiveHelper.instance.init(temp.path);
   });
 
   testWidgets('App basic smoke test', (WidgetTester tester) async {
