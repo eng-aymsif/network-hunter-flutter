@@ -63,6 +63,37 @@ public class MainActivity extends FlutterActivity {
                             result.success(true);
                             break;
                         }
+                        case "getAppStoragePath": {
+                            java.io.File dir = getExternalFilesDir(null);
+                            if (dir == null) dir = getFilesDir();
+                            result.success(dir.getAbsolutePath());
+                            break;
+                        }
+                        case "shareFile": {
+                            String filePath = call.argument("path");
+                            String mimeType = call.argument("mimeType");
+                            String title = call.argument("title");
+                            if (filePath != null) {
+                                java.io.File file = new java.io.File(filePath);
+                                if (file.exists()) {
+                                    Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                                        this,
+                                        getApplicationContext().getPackageName() + ".fileprovider",
+                                        file
+                                    );
+                                    Intent sendIntent = new Intent(Intent.ACTION_SEND);
+                                    sendIntent.setType(mimeType != null ? mimeType : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                                    sendIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                                    sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                    Intent shareIntent = Intent.createChooser(sendIntent, title != null ? title : "مشاركة ملف");
+                                    startActivity(shareIntent);
+                                    result.success(true);
+                                    break;
+                                }
+                            }
+                            result.success(false);
+                            break;
+                        }
                         case "setKeepScreenOn": {
                             Boolean enable = call.argument("enable");
                             if (enable != null && enable) {

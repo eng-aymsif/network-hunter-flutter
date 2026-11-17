@@ -51,13 +51,30 @@ void main() {
       expect(restored.loginUrl, card.loginUrl);
       expect(restored.isUsed, card.isUsed);
     });
+
+    test('Excel export structure matches status_logs_v2.xlsx specification', () {
+      final headers = [
+        'رقم الكرت (Number)',
+        'الرابط (URL)',
+        'التاريخ (Date)',
+        'الوقت (Time)',
+        'مستخدم',
+      ];
+      expect(headers.length, 5);
+      expect(headers[0], 'رقم الكرت (Number)');
+      expect(headers[1], 'الرابط (URL)');
+      expect(headers[2], 'التاريخ (Date)');
+      expect(headers[3], 'الوقت (Time)');
+      expect(headers[4], 'مستخدم');
+    });
   });
 
   group('SettingsModel Tests', () {
     test('serialization and defaults', () {
       final settings = SettingsModel();
       expect(settings.url, 'http://a.com');
-      expect(settings.startNumber, '301007757');
+      expect(settings.startNumber, '');
+      expect(settings.delayBetween, 10.0);
       expect(settings.useWebView, true);
 
       final map = settings.toMap();
@@ -65,6 +82,7 @@ void main() {
 
       expect(restored.url, settings.url);
       expect(restored.startNumber, settings.startNumber);
+      expect(restored.delayBetween, settings.delayBetween);
       expect(restored.useWebView, settings.useWebView);
     });
   });

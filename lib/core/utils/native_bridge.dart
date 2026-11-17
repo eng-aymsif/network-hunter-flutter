@@ -42,6 +42,34 @@ class NativeBridge {
     } catch (_) {}
   }
 
+  /// جلب مسار تخزين الملفات الخاص بالتطبيق
+  static Future<String> getAppStoragePath() async {
+    try {
+      final res = await _channel.invokeMethod<String>('getAppStoragePath');
+      return res ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// مشاركة ملف عبر نافذة المشاركة القياسية في النظام
+  static Future<bool> shareFile({
+    required String path,
+    String? mimeType,
+    String? title,
+  }) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('shareFile', {
+        'path': path,
+        'mimeType': mimeType,
+        'title': title,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// إبقاء الشاشة مفعلة أثناء الفحص لمنع سكون المعالج
   static Future<void> setKeepScreenOn(bool enable) async {
     try {

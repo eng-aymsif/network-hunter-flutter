@@ -84,11 +84,9 @@ class _SettingsTabState extends State<SettingsTab> {
             logoutPath: _logoutPathCtrl.text.trim().isNotEmpty
                 ? _logoutPathCtrl.text.trim()
                 : '/logout',
-            startNumber: _startNumCtrl.text.trim().isNotEmpty
-                ? _startNumCtrl.text.trim()
-                : '301007757',
+            startNumber: _startNumCtrl.text.trim(),
             maxAttempts: int.tryParse(_maxAttemptsCtrl.text.trim()) ?? 0,
-            delayBetween: double.tryParse(_delayCtrl.text.trim()) ?? 3.0,
+            delayBetween: double.tryParse(_delayCtrl.text.trim()) ?? 10.0,
             navTimeout: int.tryParse(_navTimeoutCtrl.text.trim()) ?? 30000,
             postNavWait: double.tryParse(_postWaitCtrl.text.trim()) ?? 7.0,
             unbanOnError: _unbanOnError,
@@ -296,7 +294,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     TextFormField(
                       controller: _urlCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'رابط بوابة الدخول (URL)',
+                        labelText: 'رابط بوابة الدخول (URL) * (إلزامي)',
                         hintText: 'http://a.com أو http://10.0.0.1',
                         prefixIcon: Icon(Icons.link),
                       ),
@@ -307,14 +305,14 @@ class _SettingsTabState extends State<SettingsTab> {
                       TextFormField(
                         controller: _loginPathCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'مسار الدخول (LOGIN_PATH)',
+                          labelText: 'مسار الدخول (LOGIN_PATH) * (إلزامي)',
                           hintText: '/login',
                         ),
                       ),
                       TextFormField(
                         controller: _logoutPathCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'مسار الخروج (LOGOUT_PATH)',
+                          labelText: 'مسار الخروج (LOGOUT_PATH) (اختياري)',
                           hintText: '/logout',
                         ),
                       ),
@@ -324,8 +322,8 @@ class _SettingsTabState extends State<SettingsTab> {
                       controller: _startNumCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'رقم كارت البداية (START_NUMBER)',
-                        hintText: '301007757',
+                        labelText: 'رقم كارت البداية (START_NUMBER) * (إلزامي)',
+                        hintText: 'أدخل رقم كارت البداية (إلزامي لبدء الفحص)',
                         prefixIcon: Icon(Icons.pin),
                       ),
                     ),
@@ -346,15 +344,15 @@ class _SettingsTabState extends State<SettingsTab> {
                           decimal: true,
                         ),
                         decoration: const InputDecoration(
-                          labelText: 'الانتظار بين المحاولات (ثوانٍ)',
-                          hintText: '2.0',
+                          labelText: 'الانتظار بين المحاولات (ثوانٍ) * (إلزامي)',
+                          hintText: '10.0',
                         ),
                       ),
                       TextFormField(
                         controller: _maxAttemptsCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'الحد الأقصى للمحاولات (0 = بلا توقف)',
+                          labelText: 'الحد الأقصى للمحاولات (اختياري - 0 = بلا توقف)',
                           hintText: '0',
                         ),
                       ),
@@ -366,8 +364,8 @@ class _SettingsTabState extends State<SettingsTab> {
                         controller: _navTimeoutCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'مهلة الطلب (ms)',
-                          hintText: '15000',
+                          labelText: 'مهلة الطلب (ms) (اختياري)',
+                          hintText: '30000',
                         ),
                       ),
                       TextFormField(
@@ -376,8 +374,8 @@ class _SettingsTabState extends State<SettingsTab> {
                           decimal: true,
                         ),
                         decoration: const InputDecoration(
-                          labelText: 'انتظار التحقق (ثوانٍ)',
-                          hintText: '3.0',
+                          labelText: 'انتظار التحقق (ثوانٍ) (اختياري)',
+                          hintText: '7.0',
                         ),
                       ),
                     ),
@@ -499,14 +497,14 @@ class _SettingsTabState extends State<SettingsTab> {
                       TextFormField(
                         controller: _usernameFieldCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'اسم حقل المستخدم',
+                          labelText: 'اسم حقل المستخدم * (إلزامي)',
                           hintText: 'username',
                         ),
                       ),
                       TextFormField(
                         controller: _passwordFieldCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'اسم حقل كلمة المرور',
+                          labelText: 'اسم حقل كلمة المرور (اختياري)',
                           hintText: 'password',
                         ),
                       ),
@@ -516,7 +514,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       controller: _customPasswordCtrl,
                       decoration: const InputDecoration(
                         labelText:
-                            'كلمة مرور مخصصة (اتركها فارغة لاستخدام رقم الكرت)',
+                            'كلمة مرور مخصصة (اختياري - اتركها فارغة لاستخدام رقم الكرت)',
                         hintText: 'فارغة تلقائياً',
                       ),
                     ),
@@ -547,13 +545,11 @@ class _SettingsTabState extends State<SettingsTab> {
                             logoutPath: _logoutPathCtrl.text.trim().isNotEmpty
                                 ? _logoutPathCtrl.text.trim()
                                 : '/logout',
-                            startNumber: _startNumCtrl.text.trim().isNotEmpty
-                                ? _startNumCtrl.text.trim()
-                                : '301007757',
+                            startNumber: _startNumCtrl.text.trim(),
                             maxAttempts:
                                 int.tryParse(_maxAttemptsCtrl.text.trim()) ?? 0,
                             delayBetween:
-                                double.tryParse(_delayCtrl.text.trim()) ?? 3.0,
+                                double.tryParse(_delayCtrl.text.trim()) ?? 10.0,
                             navTimeout:
                                 int.tryParse(_navTimeoutCtrl.text.trim()) ??
                                 30000,

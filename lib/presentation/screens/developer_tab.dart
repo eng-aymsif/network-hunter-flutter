@@ -87,13 +87,6 @@ class _DeveloperTabState extends State<DeveloperTab>
     }
   }
 
-  Future<void> _openGitHub() async {
-    final uri = Uri.parse('https://github.com/eng-aymsif');
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
-  }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -327,39 +320,6 @@ class _DeveloperTabState extends State<DeveloperTab>
                                 onPressed: () => _openWhatsApp(context),
                               ),
                             ],
-                          ),
-                        ),
-                        const Divider(height: 8),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                AppColors.primary.withValues(alpha: 0.12),
-                            child: const Icon(
-                              Icons.code_rounded,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          title: const Text(
-                            'الحساب الرسمي على GitHub',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'github.com/eng-aymsif (Ayman Saif)',
-                            style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
-                          ),
-                          trailing: IconButton(
-                            tooltip: 'فتح حساب GitHub',
-                            icon: const Icon(
-                              Icons.open_in_new_rounded,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                            onPressed: _openGitHub,
                           ),
                         ),
                       ],

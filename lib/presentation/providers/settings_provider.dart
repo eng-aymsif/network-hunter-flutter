@@ -7,9 +7,12 @@ class SettingsProvider extends ChangeNotifier {
 
   SettingsModel _settings = SettingsModel();
   bool _isLoaded = false;
+  String? _savedLastNumber;
 
   SettingsModel get settings => _settings;
   bool get isLoaded => _isLoaded;
+  String? get savedLastNumber => _savedLastNumber;
+  bool get hasSavedNumber => _savedLastNumber != null && _savedLastNumber!.trim().isNotEmpty;
 
   SettingsProvider() {
     loadSettings();
@@ -23,7 +26,13 @@ class SettingsProvider extends ChangeNotifier {
       await _db.saveSettings(loaded);
     }
     _settings = loaded;
+    _savedLastNumber = await _db.getState('last_tested_number');
     _isLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> refreshSavedNumber() async {
+    _savedLastNumber = await _db.getState('last_tested_number');
     notifyListeners();
   }
 

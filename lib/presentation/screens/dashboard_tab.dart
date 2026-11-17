@@ -154,6 +154,21 @@ class DashboardTab extends StatelessWidget {
                             onPressed: engine.isRunning
                                 ? null
                                 : () {
+                                    final hasSaved = settingsProv.hasSavedNumber;
+                                    final willResume = settings.resumeSaved && hasSaved;
+                                    if (!willResume && settings.startNumber.trim().isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '⚠️ رقم كارت البداية إلزامي! يرجى إدخال رقم كارت البداية في شاشة الإعدادات أولاً لبدء الفحص والاصطياد.',
+                                            style: TextStyle(fontFamily: 'Cairo'),
+                                          ),
+                                          backgroundColor: AppColors.danger,
+                                          duration: Duration(seconds: 4),
+                                        ),
+                                      );
+                                      return;
+                                    }
                                     engine.startHunting();
                                   },
                             icon: const Icon(Icons.play_arrow),
@@ -255,25 +270,31 @@ class DashboardTab extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const Divider(height: 20),
-
-                      // خيار الاستئناف التلقائي
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: const Text(
-                          'الاستئناف التلقائي من آخر رقم تم حفظه في قاعدة البيانات',
-                          style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                      // خيار الاستئناف التلقائي (يظهر فقط إذا كان هناك رقم محفوظ مسبقاً في قاعدة البيانات)
+                      if (settingsProv.hasSavedNumber) ...[
+                        const Divider(height: 20),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            'الاستئناف التلقائي من آخر رقم تم حفظه (${settingsProv.savedLastNumber})',
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          value: settings.resumeSaved,
+                          onChanged: (val) {
+                            if (val != null) {
+                              settingsProv.saveSettings(
+                                settings.copyWith(resumeSaved: val),
+                              );
+                            }
+                          },
                         ),
-                        value: settings.resumeSaved,
-                        onChanged: (val) {
-                          if (val != null) {
-                            settingsProv.saveSettings(
-                              settings.copyWith(resumeSaved: val),
-                            );
-                          }
-                        },
-                      ),
+                      ],
                     ],
                   ),
                 ),

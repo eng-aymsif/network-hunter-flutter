@@ -301,6 +301,12 @@ class HunterEngine {
         );
       } else {
         currentNumber = config.startNumber;
+        if (currentNumber.trim().isEmpty) {
+          onLog?.call('❌ خطأ: رقم كارت البداية فارغ! يرجى تحديد رقم البداية في الإعدادات أولاً.');
+          onStatusChange?.call(EngineStatus.ready, 'جاهز ومستعد 🟢');
+          _isRunning = false;
+          return;
+        }
         onLog?.call('🆕 بدء الفحص من الرقم: $currentNumber');
       }
 

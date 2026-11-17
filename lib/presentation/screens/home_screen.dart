@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
@@ -268,13 +267,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _launchWhatsapp() async {
-    final uri = Uri.parse(AppStrings.devWhatsappUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   void _showNetworkChangeDialog(
     BuildContext context,
     EngineProvider engine,
@@ -445,22 +437,27 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               AppStrings.appTitle,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               '${AppStrings.devName} | ${AppStrings.devPhone}',
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 10,
+                fontSize: 10.5,
                 color: Colors.white70,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -508,13 +505,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-          ),
-
-          // زر واتساب المطور
-          IconButton(
-            tooltip: 'تواصل مع المطور عبر واتساب',
-            icon: const Icon(Icons.chat, color: Color(0xFF25D366)),
-            onPressed: _launchWhatsapp,
           ),
 
           // زر تبديل الثيم

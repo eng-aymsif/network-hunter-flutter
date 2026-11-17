@@ -98,6 +98,16 @@ class DatabaseHelper implements HunterDatabase {
     return false;
   }
 
+  Future<void> setCardUsedStatus(int cardId, bool isUsed) async {
+    final db = await database;
+    await db.update('found_cards', {'is_used': isUsed ? 1 : 0}, where: 'id = ?', whereArgs: [cardId]);
+  }
+
+  Future<void> updateCardNotes(int cardId, String notes) async {
+    final db = await database;
+    await db.update('found_cards', {'notes': notes}, where: 'id = ?', whereArgs: [cardId]);
+  }
+
   Future<void> deleteCard(int cardId) async {
     final db = await database;
     await db.delete('found_cards', where: 'id = ?', whereArgs: [cardId]);
