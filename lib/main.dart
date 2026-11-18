@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:networking/core/services/background_hunter_service.dart';
 import 'package:networking/core/theme/app_theme.dart';
 import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/presentation/providers/cards_provider.dart';
@@ -16,13 +14,6 @@ void main() async {
   // تهيئة Hive وتسجيل الـ Adapters وفتح الصناديق محلياً
   await HiveHelper.instance.init();
 
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS)) {
-    try {
-      await BackgroundHunterService.initializeService();
-    } catch (_) {}
-  }
   runApp(const NetworkHunterApp());
 }
 

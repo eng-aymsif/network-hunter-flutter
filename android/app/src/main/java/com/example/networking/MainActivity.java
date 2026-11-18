@@ -44,6 +44,8 @@ public class MainActivity extends FlutterActivity {
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
+        // إنشاء قنوات الإشعارات فوراً عند إقلاع التطبيق لمنع أي انهيار في أندرويد 8+ وأندرويد 14
+        HunterForegroundService.createNotificationChannels(this);
         methodChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL);
         registerWifiListeners();
 

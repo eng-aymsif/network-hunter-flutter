@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:networking/core/constants/app_strings.dart';
-import 'package:networking/core/services/background_hunter_service.dart';
 import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/core/utils/sound_helper.dart';
@@ -225,103 +224,6 @@ class EngineProvider extends ChangeNotifier {
       },
     );
     _engine!.configProvider = () => _settingsProvider!.settings;
-    _initBackgroundServiceListeners();
-  }
-
-  void _initBackgroundServiceListeners() {
-    if (kIsWeb ||
-        (kDebugMode &&
-            const bool.fromEnvironment('FLUTTER_TEST', defaultValue: false))) {
-      return;
-    }
-    try {
-      final service = BackgroundHunterService.instance;
-
-      service.on('logUpdate').listen((event) {
-        final msg = event?['message']?.toString() ?? '';
-        if (msg.isNotEmpty) {
-          _logsProvider?.addLog(msg);
-          _latestLogLine = msg.trim();
-        }
-      });
-
-      service.on('statsUpdate').listen((event) {
-        _currentNumber = event?['currentNumber']?.toString() ?? _currentNumber;
-        _totalAttempts =
-            (event?['totalAttempts'] as num?)?.toInt() ?? _totalAttempts;
-        _foundCount = (event?['foundCount'] as num?)?.toInt() ?? _foundCount;
-        _unbanCount = (event?['unbanCount'] as num?)?.toInt() ?? _unbanCount;
-        notifyListeners();
-      });
-
-      service.on('statusUpdate').listen((event) {
-        final statusName = event?['status']?.toString() ?? '';
-        _statusText = event?['message']?.toString() ?? _statusText;
-        for (final s in EngineStatus.values) {
-          if (s.name == statusName) {
-            _status = s;
-            break;
-          }
-        }
-        notifyListeners();
-      });
-
-      service.on('cardFound').listen((event) {
-        _cardsProvider?.loadCards();
-      });
-
-      service.on('cardTested').listen((event) {
-        final cardNum = event?['cardNumber']?.toString() ?? '';
-        final status = event?['status']?.toString() ?? 'failed';
-        final msg = event?['portalMessage']?.toString() ?? '';
-        if (cardNum.isNotEmpty) {
-          _cardsProvider?.onTestedCardRecorded(
-            cardNumber: cardNum,
-            status: status,
-            portalMessage: msg,
-          );
-        } else {
-          _cardsProvider?.loadTestedCards(silent: true);
-        }
-      });
-
-      service.on('engineFinished').listen((_) {
-        _status = EngineStatus.ready;
-        _statusText = AppStrings.statusReady;
-        NativeBridge.setKeepScreenOn(false);
-        notifyListeners();
-      });
-
-      service.on('statusResponse').listen((event) {
-        final isRunning = event?['isRunning'] == true;
-        if (isRunning) {
-          final statusName = event?['status']?.toString() ?? '';
-          _statusText =
-              event?['statusMessage']?.toString() ?? AppStrings.statusRunning;
-          for (final s in EngineStatus.values) {
-            if (s.name == statusName) {
-              _status = s;
-              break;
-            }
-          }
-          _currentNumber =
-              event?['currentNumber']?.toString() ?? _currentNumber;
-          _totalAttempts =
-              (event?['totalAttempts'] as num?)?.toInt() ?? _totalAttempts;
-          _foundCount = (event?['foundCount'] as num?)?.toInt() ?? _foundCount;
-          _unbanCount = (event?['unbanCount'] as num?)?.toInt() ?? _unbanCount;
-          final log = event?['lastLog']?.toString() ?? '';
-          if (log.isNotEmpty) {
-            _logsProvider?.addLog(
-              '🔄 استئناف عرض حالة الفحص النشطة في الخلفية: $log',
-            );
-          }
-          notifyListeners();
-        }
-      });
-
-      service.invoke('requestStatus');
-    } catch (_) {}
   }
 
   Future<void> startHunting() async {
@@ -366,30 +268,20 @@ class EngineProvider extends ChangeNotifier {
     _statusText = AppStrings.statusRunning;
     notifyListeners();
 
-    // تشغيل خدمة الخلفية المستقلة لضمان استمرار الفحص حتى عند إغلاق التطبيق نهائياً
-    if (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        !const bool.fromEnvironment('FLUTTER_TEST', defaultValue: false)) {
-      try {
-        final service = BackgroundHunterService.instance;
-        final isServiceRunning = await service.isRunning();
-        if (!isServiceRunning) {
-          await service.startService();
-        }
-        service.invoke('startHunting', {
-          'settings': settings.toMap(),
-        });
-        return;
-      } catch (e) {
-        _logsProvider?.addLog('⚠️ خطأ في تشغيل خدمة الخلفية: $e — جاري التشغيل في الوضع المباشر.');
-      }
-    }
+    // تشغيل خدمة الخلفية الأصلية في أندرويد لحجز WakeLock وإبقاء المعالج والواي فاي نشطين
+    await NativeBridge.startForegroundService(
+      title: 'Network Hunter • قيد الفحص والاصطياد 🚀',
+      body: 'الكرت الحالي: $_currentNumber | المحاولات: $_totalAttempts | المكتشفة: $_foundCount',
+      subText: _huntingSsid.isNotEmpty ? 'الشبكة: $_huntingSsid' : null,
+    );
 
-    // وضع احتياطي (أو في بيئة الاختبار)
     try {
       await _engine?.start(settings);
+    } catch (e) {
+      _logsProvider?.addLog('❌ حدث خطأ أثناء الفحص: $e');
     } finally {
       await NativeBridge.setKeepScreenOn(false);
+      await NativeBridge.stopForegroundService();
       _status = EngineStatus.ready;
       _statusText = AppStrings.statusReady;
       notifyListeners();
@@ -399,9 +291,6 @@ class EngineProvider extends ChangeNotifier {
   void pauseHunting() {
     _status = EngineStatus.paused;
     _statusText = AppStrings.statusPaused;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      BackgroundHunterService.instance.invoke('pauseHunting');
-    }
     _engine?.pause();
     _syncLiveForegroundNotification();
     notifyListeners();
@@ -410,9 +299,6 @@ class EngineProvider extends ChangeNotifier {
   void resumeHunting() {
     _status = EngineStatus.running;
     _statusText = AppStrings.statusRunning;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      BackgroundHunterService.instance.invoke('resumeHunting');
-    }
     _engine?.resume();
     _syncLiveForegroundNotification();
     notifyListeners();
@@ -421,9 +307,6 @@ class EngineProvider extends ChangeNotifier {
   void stopHunting() {
     _status = EngineStatus.stopping;
     _statusText = AppStrings.statusStopping;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      BackgroundHunterService.instance.invoke('stopHunting');
-    }
     _engine?.stop();
     NativeBridge.setKeepScreenOn(false);
     NativeBridge.stopForegroundService();
