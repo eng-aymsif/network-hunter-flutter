@@ -13,6 +13,9 @@ class PlatformEnv {
   static bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
+  static bool get isBrowserOnline => true;
+  static String getPersistentWebDeviceId() => '';
+
   static String get platformName {
     if (Platform.isWindows) return 'Windows Pro';
     if (Platform.isAndroid) return 'Android';

@@ -14,6 +14,34 @@ class PlatformEnv {
   static bool get isDesktop => true;
   static String get platformName => 'Web Edition';
 
+  static bool get isBrowserOnline {
+    try {
+      final res = _jsEval('Boolean(window.navigator.onLine)'.toJS);
+      if (res != null && res.isA<JSBoolean>()) {
+        return (res as JSBoolean).toDart;
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  static String getPersistentWebDeviceId() {
+    try {
+      final item =
+          _jsEval('window.localStorage.getItem("nh_web_device_id")'.toJS);
+      if (item != null && item.isA<JSString>()) {
+        final val = (item as JSString).toDart.trim();
+        if (val.isNotEmpty) return val;
+      }
+      final newId = 'WEB_${DateTime.now().millisecondsSinceEpoch}';
+      _jsEval(
+        'window.localStorage.setItem("nh_web_device_id", "$newId")'.toJS,
+      );
+      return newId;
+    } catch (_) {
+      return 'WEB_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
   static Future<bool> lookupHost(
     String host, {
     Duration timeout = const Duration(seconds: 3),

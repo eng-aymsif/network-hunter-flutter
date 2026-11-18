@@ -8,6 +8,9 @@ class PlatformEnv {
   static bool get isDesktop => false;
   static String get platformName => 'Unknown';
 
+  static bool get isBrowserOnline => true;
+  static String getPersistentWebDeviceId() => '';
+
   static Future<bool> lookupHost(
     String host, {
     Duration timeout = const Duration(seconds: 3),

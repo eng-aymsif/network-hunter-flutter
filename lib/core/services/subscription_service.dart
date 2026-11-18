@@ -37,7 +37,7 @@ class SubscriptionService {
       validateStatus: (status) => status != null && status < 500,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'NetworkHunter-Flutter/$currentAppVersion',
+        if (!kIsWeb) 'User-Agent': 'NetworkHunter-Flutter/$currentAppVersion',
       },
     ),
   );
@@ -78,9 +78,7 @@ class SubscriptionService {
 
     try {
       if (kIsWeb) {
-        final webInfo = await deviceInfo.webBrowserInfo;
-        detectedId =
-            'WEB_${webInfo.browserName.name}_${webInfo.platform ?? 'browser'}_${DateTime.now().millisecondsSinceEpoch}';
+        detectedId = PlatformEnv.getPersistentWebDeviceId();
       } else if (PlatformEnv.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         detectedId = androidInfo.id;
@@ -111,20 +109,35 @@ class SubscriptionService {
 
   /// التحقق من الاتصال بالإنترنت العام
   Future<bool> checkInternetConnection() async {
+    // 1. فحص الاتصال بالإنترنت في بيئة المتصفح (Web)
+    if (kIsWeb) {
+      if (PlatformEnv.isBrowserOnline) {
+        // محاولة جلب توقيت السيرفر في الخلفية دون تعطيل الدخول
+        try {
+          final res = await _dio.get(
+            serverInfoEndpoint,
+            options: Options(receiveTimeout: const Duration(seconds: 4)),
+          );
+          if (res.statusCode == 200) {
+            _recordServerTime(res.data);
+          }
+        } catch (_) {}
+        return true;
+      }
+      return false;
+    }
+
+    // 2. التحقق من السيرفر الأساسي للأنظمة الأصلية (Android / Windows)
     try {
       final res = await _dio.get(
         serverInfoEndpoint,
-        options: Options(receiveTimeout: const Duration(seconds: 6)),
+        options: Options(receiveTimeout: const Duration(seconds: 5)),
       );
       if (res.statusCode == 200) {
         _recordServerTime(res.data);
         return true;
       }
     } catch (_) {}
-
-    if (kIsWeb) {
-      return false;
-    }
 
     if (await PlatformEnv.lookupHost(
       'main.terhabb.com',
