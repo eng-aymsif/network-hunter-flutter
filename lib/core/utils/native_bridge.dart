@@ -50,6 +50,13 @@ class NativeBridge {
     }
   }
 
+  /// مسح كافة الكوكيز وبيانات WebStorage والكاش من نظام أندرويد الأصلي
+  static Future<void> clearWebStorageAndCache() async {
+    try {
+      await _channel.invokeMethod('clearWebStorageAndCache');
+    } catch (_) {}
+  }
+
   /// جلب اسم شبكة الواي فاي المتصل بها حالياً (SSID)
   static Future<String> getCurrentWifiSsid() async {
     try {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
 import 'package:networking/core/services/subscription_service.dart';
+import 'package:networking/presentation/providers/cards_provider.dart';
 import 'package:networking/presentation/providers/engine_provider.dart';
 import 'package:networking/presentation/providers/logs_provider.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
@@ -17,6 +18,7 @@ class DashboardTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final engine = context.watch<EngineProvider>();
+    final cardsProv = context.watch<CardsProvider>();
     final logs = context.watch<LogsProvider>();
     final settingsProv = context.watch<SettingsProvider>();
     final settings = settingsProv.settings;
@@ -313,6 +315,69 @@ class DashboardTab extends StatelessWidget {
                             ),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.purple),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+
+                          // زر تسجيل الخروج الفوري من الكرت المتصل ومسح الكاش والكوكيز
+                          OutlinedButton.icon(
+                            onPressed: cardsProv.isLoggingOut
+                                ? null
+                                : () async {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '🚪 جاري تسجيل الخروج من الشبكة وتطهير الكاش والكوكيز...',
+                                          style: TextStyle(fontFamily: 'Cairo'),
+                                        ),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                    final ok =
+                                        await engine.manualLogoutAndPurge();
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? '✅ تم تسجيل الخروج من الكرت المتصل ومسح الكاش والكوكيز بالكامل!'
+                                              : '⚠️ تعذر إتمام بعض خطوات تسجيل الخروج',
+                                          style: const TextStyle(
+                                            fontFamily: 'Cairo',
+                                          ),
+                                        ),
+                                        backgroundColor: ok
+                                            ? AppColors.success
+                                            : AppColors.warning,
+                                      ),
+                                    );
+                                  },
+                            icon: cardsProv.isLoggingOut
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.danger,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.logout_rounded,
+                                    color: AppColors.danger,
+                                  ),
+                            label: const Text(
+                              'تسجيل الخروج ومسح الكوكيز والكاش',
+                              style: TextStyle(
+                                color: AppColors.danger,
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.danger),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 10,

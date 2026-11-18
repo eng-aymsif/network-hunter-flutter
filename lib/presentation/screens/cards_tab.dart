@@ -351,6 +351,56 @@ class _CardsTabState extends State<CardsTab> {
                       ),
                       onPressed: () => cardsProv.selectUnused(),
                     ),
+                    const SizedBox(width: 6),
+                    ActionChip(
+                      avatar: cardsProv.isLoggingOut
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.danger,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.logout_rounded,
+                              size: 16,
+                              color: AppColors.danger,
+                            ),
+                      label: const Text(
+                        'تسجيل الخروج ومسح الكوكيز والكاش',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.danger,
+                        ),
+                      ),
+                      side: BorderSide(
+                        color: AppColors.danger.withValues(alpha: 0.4),
+                      ),
+                      onPressed: cardsProv.isLoggingOut
+                          ? null
+                          : () async {
+                              final engineProv = context.read<EngineProvider>();
+                              final ok =
+                                  await engineProv.manualLogoutAndPurge();
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok
+                                        ? '✅ تم تسجيل الخروج من الكرت المتصل ومسح الكاش والكوكيز بالكامل!'
+                                        : '⚠️ تعذر إتمام بعض خطوات تسجيل الخروج',
+                                    style: const TextStyle(fontFamily: 'Cairo'),
+                                  ),
+                                  backgroundColor: ok
+                                      ? AppColors.success
+                                      : AppColors.warning,
+                                ),
+                              );
+                            },
+                    ),
                     if (isSelectionMode) ...[
                       const SizedBox(width: 6),
                       ActionChip(

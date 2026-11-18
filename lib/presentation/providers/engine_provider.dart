@@ -389,4 +389,26 @@ class EngineProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// تسجيل الخروج الفوري من أي كرت متصل ومسح كافة الكوكيز والكاش
+  Future<bool> manualLogoutAndPurge() async {
+    if (_settingsProvider == null || _cardsProvider == null) return false;
+
+    try {
+      if (_engine?.browserController != null) {
+        try {
+          await _engine!.browserController!.executeLogout();
+        } catch (_) {}
+        await _engine!.browserController!.clearCookies();
+        await _engine!.browserController!.clearLocalStorage();
+        await _engine!.browserController!.clearCache();
+      }
+    } catch (_) {}
+
+    final ok = await _cardsProvider!.logoutAndClearCacheAndCookies(
+      _settingsProvider!.settings,
+      onLog: (m) => _logsProvider?.addLog(m),
+    );
+    return ok;
+  }
 }

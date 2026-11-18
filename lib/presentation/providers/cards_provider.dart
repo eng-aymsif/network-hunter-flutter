@@ -8,6 +8,7 @@ import 'package:networking/data/datasources/database_helper.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/data/models/tested_card_model.dart';
+import 'package:networking/domain/engine/hunter_adapters.dart';
 
 class CardsProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -24,6 +25,7 @@ class CardsProvider extends ChangeNotifier {
   String _testedSearchQuery = '';
 
   bool _isAutoLoggingIn = false;
+  bool _isLoggingOut = false;
   String _autoLoginStatus = '';
   String? _lastAutoConnectedCard;
 
@@ -32,7 +34,7 @@ class CardsProvider extends ChangeNotifier {
     return _cards.where((c) => c.cardNumber.contains(_searchQuery)).toList();
   }
 
-  /// رتل الكروت غير المستخدمة مرتبة تصاعدياً حسب أولوية الاتصال التلقائي
+  /// قائمة الكروت غير المستخدمة مرتبة تصاعدياً حسب أولوية الاتصال التلقائي
   List<CardModel> get unusedQueue {
     final list = _cards.where((c) => !c.isUsed).toList();
     list.sort((a, b) {
@@ -45,6 +47,7 @@ class CardsProvider extends ChangeNotifier {
   }
 
   bool get isAutoLoggingIn => _isAutoLoggingIn;
+  bool get isLoggingOut => _isLoggingOut;
   String get autoLoginStatus => _autoLoginStatus;
   String? get lastAutoConnectedCard => _lastAutoConnectedCard;
 
@@ -819,6 +822,80 @@ class CardsProvider extends ChangeNotifier {
       return null;
     } finally {
       _isAutoLoggingIn = false;
+      notifyListeners();
+    }
+  }
+
+  /// تسجيل الخروج الفوري من أي كرت متصل في البوابة ومسح كافة الكوكيز والكاش وبيانات التخزين
+  Future<bool> logoutAndClearCacheAndCookies(
+    SettingsModel config, {
+    Dio? customDio,
+    void Function(String logMsg)? onLog,
+  }) async {
+    if (_isLoggingOut) return false;
+    _isLoggingOut = true;
+    notifyListeners();
+
+    final baseUrl = config.url.replaceAll(RegExp(r'/+$'), '');
+    final logoutUrl = '$baseUrl${config.logoutPath}';
+    final eraseCookieUrl1 = logoutUrl.contains('?')
+        ? '$logoutUrl&erase-cookie=1'
+        : '$logoutUrl?erase-cookie=1';
+    final eraseCookieUrlOn = logoutUrl.contains('?')
+        ? '$logoutUrl&erase-cookie=on'
+        : '$logoutUrl?erase-cookie=on';
+
+    try {
+      onLog?.call(
+        '🚪 [تسجيل الخروج وتطهير الجلسة]: جاري إرسال أوامر الخروج لبوابة الشبكة ومسح الكاش والكوكيز...',
+      );
+
+      final dio = customDio ?? _createDio(8000);
+
+      // 1. إرسال طلبات الخروج وحذف الكوكي من راوتر المايكروتك
+      for (final targetUrl in [logoutUrl, eraseCookieUrl1, eraseCookieUrlOn]) {
+        try {
+          await dio
+              .get(targetUrl, options: Options(followRedirects: true))
+              .timeout(const Duration(seconds: 4));
+        } catch (_) {}
+      }
+
+      // 2. تطهير الكوكيز والكاش وبيانات التخزين في محرك المتصفح المدمج (WebView)
+      try {
+        final browser = createPlatformBrowserController();
+        if (browser != null) {
+          await browser.clearCookies();
+          await browser.clearLocalStorage();
+          await browser.clearCache();
+          browser.dispose();
+        }
+      } catch (_) {}
+
+      // 3. تطهير الكوكيز وWebStorage والكاش من نظام أندرويد الأصلي
+      await NativeBridge.clearWebStorageAndCache();
+
+      // 4. تحديث ملاحظات الكروت التي كانت تحمل حالة "متصل حالياً"
+      for (final c in _cards) {
+        if (c.id != null &&
+            (c.notes.contains('متصل حالياً') ||
+                c.notes.contains('تم الاتصال تلقائياً'))) {
+          await _db.updateCardNotes(c.id!, 'تم تسجيل الخروج 🚪');
+        }
+      }
+      _lastAutoConnectedCard = null;
+      _autoLoginStatus = 'تم تسجيل الخروج ومسح الكوكيز والكاش بنجاح 🧹';
+      await loadCards();
+
+      onLog?.call(
+        '✅ [تسجيل الخروج وتطهير الجلسة]: تم الخروج من الكرت المتصل وتطهير الكاش والكوكيز بالكامل.',
+      );
+      return true;
+    } catch (e) {
+      onLog?.call('⚠️ حدث خطأ أثناء تسجيل الخروج وتطهير الكاش: $e');
+      return false;
+    } finally {
+      _isLoggingOut = false;
       notifyListeners();
     }
   }

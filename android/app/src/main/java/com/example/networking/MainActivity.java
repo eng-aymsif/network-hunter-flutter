@@ -204,6 +204,11 @@ public class MainActivity extends FlutterActivity {
                             result.success(isCaptivePortalOrUnvalidatedWifi());
                             break;
                         }
+                        case "clearWebStorageAndCache": {
+                            clearNativeWebStorageAndCache();
+                            result.success(true);
+                            break;
+                        }
                         default:
                             result.notImplemented();
                             break;
@@ -364,6 +369,46 @@ public class MainActivity extends FlutterActivity {
             } catch (Exception ignored) {}
         }
         return false;
+    }
+
+    private void clearNativeWebStorageAndCache() {
+        try {
+            android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
+            if (cookieManager != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    cookieManager.removeAllCookies(null);
+                    cookieManager.flush();
+                } else {
+                    cookieManager.removeAllCookie();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            android.webkit.WebStorage.getInstance().deleteAllData();
+        } catch (Exception ignored) {}
+
+        try {
+            java.io.File cacheDir = getCacheDir();
+            if (cacheDir != null && cacheDir.isDirectory()) {
+                deleteDirRecursive(cacheDir);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void deleteDirRecursive(java.io.File dir) {
+        if (dir == null || !dir.exists()) return;
+        java.io.File[] children = dir.listFiles();
+        if (children != null) {
+            for (java.io.File child : children) {
+                if (child.isDirectory()) {
+                    deleteDirRecursive(child);
+                }
+                try {
+                    child.delete();
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     @Override
