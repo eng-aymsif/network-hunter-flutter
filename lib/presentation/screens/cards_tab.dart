@@ -30,12 +30,14 @@ class _CardsTabState extends State<CardsTab> {
     final cardsProv = context.watch<CardsProvider>();
     final settingsProv = context.watch<SettingsProvider>();
     final engineProv = context.watch<EngineProvider>();
+    final showAutoLoginTab = settingsProv.settings.autoLoginWithHuntedCards;
 
     return DefaultTabController(
-      length: 3,
+      key: ValueKey<bool>(showAutoLoginTab),
+      length: showAutoLoginTab ? 3 : 2,
       child: Column(
         children: [
-          // شريط التبويب العلوي الأنيق (الكروت المصطادة | رتل الاتصال التلقائي | سجل الكروت المختبرة)
+          // شريط التبويب العلوي الأنيق (يظهر التبويب الثالث فقط عند تفعيل ميزة الاتصال التلقائي في الإعدادات)
           Container(
             color: Theme.of(context).cardColor,
             child: TabBar(
@@ -87,38 +89,6 @@ class _CardsTabState extends State<CardsTab> {
                   ),
                 ),
                 Tab(
-                  icon: const Icon(Icons.autorenew_rounded, size: 20),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('رتل الاتصال التلقائي'),
-                        const SizedBox(width: 5),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${cardsProv.unusedCount}',
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Tab(
                   icon: const Icon(Icons.fact_check_outlined, size: 20),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -150,28 +120,62 @@ class _CardsTabState extends State<CardsTab> {
                     ),
                   ),
                 ),
+                if (showAutoLoginTab)
+                  Tab(
+                    icon: const Icon(Icons.autorenew_rounded, size: 20),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('أولوية الاتصال التلقائي'),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${cardsProv.unusedCount}',
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
           const Divider(height: 1),
 
-          // محتوى التبويبات الثلاثة
+          // محتوى التبويبات
           Expanded(
             child: TabBarView(
               children: [
                 // التبويب 1: الكروت المصطادة
                 _buildHuntedCardsView(context, cardsProv, settingsProv),
 
-                // التبويب 2: رتل الاتصال التلقائي (ترتيب الكروت غير المستخدمة)
-                _buildAutoLoginQueueView(
-                  context,
-                  cardsProv,
-                  settingsProv,
-                  engineProv,
-                ),
-
-                // التبويب 3: سجل الكروت المختبرة (DataTable)
+                // التبويب 2: سجل الكروت المختبرة (DataTable)
                 _buildTestedCardsView(context, cardsProv),
+
+                // التبويب 3 (يظهر فقط عند التفعيل في الإعدادات): أولوية الاتصال التلقائي
+                if (showAutoLoginTab)
+                  _buildAutoLoginQueueView(
+                    context,
+                    cardsProv,
+                    settingsProv,
+                    engineProv,
+                  ),
               ],
             ),
           ),
@@ -1298,7 +1302,7 @@ class _CardsTabState extends State<CardsTab> {
   }
 
   // ===========================================================================
-  // التبويب الثاني: رتل الاتصال التلقائي (إدارة وترتيب أولوية الكروت غير المستخدمة)
+  // التبويب الثالث: أولوية الاتصال التلقائي (إدارة وترتيب الكروت غير المستخدمة)
   // ===========================================================================
   Widget _buildAutoLoginQueueView(
     BuildContext context,
@@ -1307,7 +1311,6 @@ class _CardsTabState extends State<CardsTab> {
     EngineProvider engineProv,
   ) {
     final queue = cardsProv.unusedQueue;
-    final isEnabled = settingsProv.settings.autoLoginWithHuntedCards;
     final isHunting = engineProv.isRunning;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -1315,19 +1318,14 @@ class _CardsTabState extends State<CardsTab> {
     Color statusBannerColor;
     IconData statusBannerIcon;
 
-    if (!isEnabled) {
-      statusBannerText =
-          'الاتصال التلقائي معطل حالياً — فعّله من المفتاح أدناه أو من تبويب الإعدادات';
-      statusBannerColor = Colors.grey;
-      statusBannerIcon = Icons.pause_circle_outline_rounded;
-    } else if (isHunting) {
+    if (isHunting) {
       statusBannerText =
           'متوقف مؤقتاً لأن محرك الفحص والاصطياد قيد التشغيل حالياً';
       statusBannerColor = AppColors.warning;
       statusBannerIcon = Icons.shield_outlined;
     } else if (queue.isEmpty) {
       statusBannerText =
-          'لا توجد كروت مصطادة غير مستخدمة في الرتل حالياً';
+          'لا توجد كروت مصطادة غير مستخدمة جاهزة للاتصال التلقائي حالياً';
       statusBannerColor = AppColors.danger;
       statusBannerIcon = Icons.info_outline_rounded;
     } else {
@@ -1381,7 +1379,7 @@ class _CardsTabState extends State<CardsTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'الاتصال التلقائي عند انتهاء الرصيد أو الخروج',
+                          'ترتيب أولوية الاتصال التلقائي بالشبكة',
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 13,
@@ -1400,16 +1398,6 @@ class _CardsTabState extends State<CardsTab> {
                         ),
                       ],
                     ),
-                  ),
-                  Switch(
-                    value: isEnabled,
-                    activeThumbColor: AppColors.success,
-                    onChanged: (val) {
-                      final updated = settingsProv.settings.copyWith(
-                        autoLoginWithHuntedCards: val,
-                      );
-                      settingsProv.saveSettings(updated);
-                    },
                   ),
                 ],
               ),
@@ -1446,7 +1434,7 @@ class _CardsTabState extends State<CardsTab> {
                   children: [
                     Expanded(
                       child: Text(
-                        'اسحب الكرت للأعلى أو الأسفل لترتيب الأولوية، أو اضغط على السهم لرفعه للمركز #1.',
+                        'اسحب الكرت للأعلى أو الأسفل لتحديد ترتيب الاتصال عند انتهاء الرصيد، أو ارفعه للمركز #1.',
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 10.5,
@@ -1460,7 +1448,7 @@ class _CardsTabState extends State<CardsTab> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.wifi_rounded, size: 15),
                       label: const Text(
-                        'اتصال بالرتل الآن',
+                        'اتصال تلقائي الآن',
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 11,
@@ -1479,7 +1467,6 @@ class _CardsTabState extends State<CardsTab> {
                           ? null
                           : () async {
                               final logsProv = context.read<LogsProvider>();
-                              // تفعيل الإعداد مؤقتاً أو تمريره لتجربة الاتصال الفوري بالرتل
                               final effectiveSettings = settingsProv.settings
                                   .copyWith(autoLoginWithHuntedCards: true);
                               final connectedNum = await cardsProv
@@ -1495,7 +1482,7 @@ class _CardsTabState extends State<CardsTab> {
                                   content: Text(
                                     connectedNum != null
                                         ? '🎉 تم الاتصال بنجاح عبر الكرت: $connectedNum وتحويله إلى مستخدم!'
-                                        : '❌ تعذر الاتصال بأي كرت في الرتل حالياً',
+                                        : '❌ تعذر الاتصال بأي كرت من القائمة حالياً',
                                     style: const TextStyle(fontFamily: 'Cairo'),
                                   ),
                                   backgroundColor: connectedNum != null
@@ -1526,7 +1513,7 @@ class _CardsTabState extends State<CardsTab> {
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'رتل الاتصال التلقائي فارغ حالياً',
+                        'لا توجد كروت جاهزة للاتصال التلقائي حالياً',
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 15,

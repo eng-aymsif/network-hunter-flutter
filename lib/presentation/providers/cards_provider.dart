@@ -771,7 +771,7 @@ class CardsProvider extends ChangeNotifier {
       }
 
       onLog?.call(
-        '🔌 [الاتصال التلقائي]: تم رصد حاجة الشبكة لتسجيل الدخول — بدء السحب من رتل الكروت (${queue.length} كرت متاح)...',
+        '🔌 [الاتصال التلقائي]: تم رصد حاجة الشبكة لتسجيل الدخول — بدء الاتصال حسب ترتيب الأولوية (${queue.length} كرت متاح)...',
       );
 
       for (int i = 0; i < queue.length; i++) {
@@ -810,12 +810,12 @@ class CardsProvider extends ChangeNotifier {
           return card.cardNumber;
         } else {
           onLog?.call(
-            '  ❌ فشل الكرت (${card.cardNumber}) (منتهي أو غير صالح) — الانتقال للكرت التالي في الرتل...',
+            '  ❌ فشل الكرت (${card.cardNumber}) (منتهي أو غير صالح) — الانتقال للكرت التالي في قائمة الأولوية...',
           );
         }
       }
 
-      _autoLoginStatus = 'تعذر الاتصال: لم ينجح أي كرت في الرتل';
+      _autoLoginStatus = 'تعذر الاتصال: لم ينجح أي كرت من القائمة';
       return null;
     } finally {
       _isAutoLoggingIn = false;
