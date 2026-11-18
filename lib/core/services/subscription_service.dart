@@ -18,6 +18,10 @@ class SubscriptionService {
   static final SubscriptionService instance = SubscriptionService._internal();
   SubscriptionService._internal();
 
+  /// الإصدار الحالي للتطبيق ورقم البناء الداخلي
+  static const String currentAppVersion = '1.1.0';
+  static const int currentVersionCode = 2;
+
   static const String serverBaseUrl = 'https://main.terhabb.com';
   static const String checkSubEndpoint = '/api/method/network_hunter.api.check_subscription';
   static const String requestSubEndpoint = '/api/method/network_hunter.api.request_subscription';
@@ -33,7 +37,7 @@ class SubscriptionService {
       validateStatus: (status) => status != null && status < 500,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'NetworkHunter-Flutter/1.0',
+        'User-Agent': 'NetworkHunter-Flutter/$currentAppVersion',
       },
     ),
   );
@@ -82,6 +86,8 @@ class SubscriptionService {
     detectedId = detectedId.trim().replaceAll(' ', '_');
     _cachedDeviceId = detectedId;
     await HiveHelper.instance.saveSubscriptionData({'device_id': detectedId});
+    // تسجيل رقم إصدار التطبيق المثبت محلياً للحماية من الـ Downgrade
+    await HiveHelper.instance.recordInstalledVersionCode(currentVersionCode);
     return detectedId;
   }
 
@@ -126,7 +132,10 @@ class SubscriptionService {
     try {
       final response = await _dio.get(
         checkSubEndpoint,
-        queryParameters: {'device_id': devId},
+        queryParameters: {
+          'device_id': devId,
+          'app_version': currentAppVersion,
+        },
       );
 
       if (response.statusCode == 200 && response.data != null) {
@@ -195,6 +204,7 @@ class SubscriptionService {
         'full_name': fullName.trim(),
         'phone_number': phoneNumber.trim(),
         'device_id': devId,
+        'app_version': currentAppVersion,
       });
 
       final response = await _dio.post(
@@ -297,6 +307,28 @@ class SubscriptionService {
   DateTime getTrustedDateTime() {
     final now = DateTime.now();
     return now.add(_serverTimeOffset);
+  }
+
+  /// فحص سلامة إصدار التطبيق ومكافحة تثبيت نسخ قديمة (Anti-Downgrade & Server Min Version)
+  ({bool isAllowed, String? message}) verifyVersionIntegrity(SubscriptionModel? sub) {
+    // 1. فحص محلي ضد محاولة الـ Downgrade (تثبيت APK بإصدار أقدم من الإصدار الذي كان يعمل في الجهاز)
+    final highestInstalled = HiveHelper.instance.getHighestInstalledVersionCode();
+    if (highestInstalled > 0 && currentVersionCode < highestInstalled) {
+      return (
+        isAllowed: false,
+        message: 'تم اكتشاف محاولة تثبيت نسخة أقدم ملغاة من التطبيق (Downgrade Attack)! يرجى تثبيت أحدث إصدار لمتابعة الاستخدام بأمان.',
+      );
+    }
+
+    // 2. فحص السيرفر: هل النسخة الحالية مدعومة في Hunter Settings؟
+    if (sub != null && !sub.isVersionSupported) {
+      final notes = sub.updateNotes.isNotEmpty
+          ? sub.updateNotes
+          : 'إصدار التطبيق الحالي (v$currentAppVersion) قديم ولم يعد مدعوماً من السيرفر. يلزم التحديث إلى الإصدار (v${sub.serverAppVersion}) للاستمرار.';
+      return (isAllowed: false, message: notes);
+    }
+
+    return (isAllowed: true, message: null);
   }
 
   /// التحقق الصارم من سلامة الوقت والتأكد من عدم التلاعب بتأخير أو تقديم وقت الجهاز

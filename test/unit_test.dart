@@ -3,6 +3,7 @@ import 'package:test/test.dart';
 import 'package:networking/core/utils/number_formatter.dart';
 import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/data/datasources/unban_service.dart';
+import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/data/models/subscription_model.dart';
@@ -280,6 +281,39 @@ void main() {
       );
       expect(lifetimeSub.isDaily, isFalse);
       expect(lifetimeSub.isQuotaExhausted, isTrue);
+    });
+
+    test('Anti-downgrade and server minimum version checks', () async {
+      final subSupported = SubscriptionModel(
+        requestId: 'SUB-2026-00002',
+        fullName: 'أيمن سيف',
+        phoneNumber: '777000111',
+        deviceId: 'dev_123',
+        status: 'Available',
+        isVersionSupported: true,
+        serverAppVersion: '1.1.0',
+        minSupportedVersion: '1.1.0',
+      );
+
+      final resultAllowed = SubscriptionService.instance.verifyVersionIntegrity(subSupported);
+      expect(resultAllowed.isAllowed, isTrue);
+
+      final subUnsupported = subSupported.copyWith(
+        isVersionSupported: false,
+        updateNotes: 'يلزم الترقية للإصدار الجديد',
+      );
+      final resultRejected = SubscriptionService.instance.verifyVersionIntegrity(subUnsupported);
+      expect(resultRejected.isAllowed, isFalse);
+      expect(resultRejected.message, contains('يلزم الترقية'));
+
+      // Test local downgrade detection
+      await HiveHelper.instance.recordInstalledVersionCode(99);
+      final downgradeResult = SubscriptionService.instance.verifyVersionIntegrity(subSupported);
+      expect(downgradeResult.isAllowed, isFalse);
+      expect(downgradeResult.message, contains('Downgrade Attack'));
+
+      // Restore normal version code
+      await HiveHelper.instance.recordInstalledVersionCode(SubscriptionService.currentVersionCode);
     });
   });
 }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
 import 'package:networking/core/services/subscription_service.dart';
+import 'package:networking/presentation/screens/force_update_screen.dart';
 import 'package:networking/presentation/screens/home_screen.dart';
 import 'package:networking/presentation/screens/subscription_pending_screen.dart';
 import 'package:networking/presentation/screens/subscription_stopped_screen.dart';
@@ -79,6 +80,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       // محاولة التحقق إذا كان هناك اشتراك متاح محفوظ محلياً
       final localSub = SubscriptionService.instance.currentSubscription;
       if (localSub != null && localSub.isAvailable) {
+        // التحقق من سلامة إصدار التطبيق ومكافحة تثبيت إصدار قديم
+        final versionCheck = SubscriptionService.instance.verifyVersionIntegrity(localSub);
+        if (!versionCheck.isAllowed) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ForceUpdateScreen(
+                subscription: localSub,
+                customErrorMessage: versionCheck.message,
+                onToggleTheme: widget.onToggleTheme,
+                isDark: widget.isDark,
+              ),
+            ),
+          );
+          return;
+        }
+
         // التحقق من سلامة التوقيت
         final timeCheck = SubscriptionService.instance.verifyTimeIntegrity();
         if (timeCheck.isValid) {
@@ -117,6 +134,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     try {
       final sub = await SubscriptionService.instance.checkSubscription(forceRefresh: true);
       if (!mounted) return;
+
+      // 4. التحقق الصارم من إصدار التطبيق (Anti-Downgrade & Server Min Version)
+      final versionCheck = SubscriptionService.instance.verifyVersionIntegrity(sub);
+      if (!versionCheck.isAllowed) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => ForceUpdateScreen(
+              subscription: sub,
+              customErrorMessage: versionCheck.message,
+              onToggleTheme: widget.onToggleTheme,
+              isDark: widget.isDark,
+            ),
+          ),
+        );
+        return;
+      }
 
       if (sub.isNotFound) {
         // لا يوجد اشتراك مسجل لهذا الجهاز -> فتح نافذة طلب الاشتراك

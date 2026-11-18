@@ -329,4 +329,16 @@ class HiveHelper implements HunterDatabase {
       await _subscriptionBox.put('highest_seen_timestamp_ms', timestampMs);
     }
   }
+
+  int getHighestInstalledVersionCode() {
+    return (getSubscriptionValue('highest_installed_version_code', 0) as num).toInt();
+  }
+
+  Future<void> recordInstalledVersionCode(int versionCode) async {
+    await _ensureInitialized();
+    final current = getHighestInstalledVersionCode();
+    if (versionCode > current) {
+      await _subscriptionBox.put('highest_installed_version_code', versionCode);
+    }
+  }
 }

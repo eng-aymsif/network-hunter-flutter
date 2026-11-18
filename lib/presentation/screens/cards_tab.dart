@@ -861,13 +861,14 @@ class _CardsTabState extends State<CardsTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final bottomInset = MediaQuery.of(ctx).padding.bottom;
 
         return Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.88,
           ),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
@@ -878,7 +879,12 @@ class _CardsTabState extends State<CardsTab> {
             bottom: true,
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(12, 12, 12, bottomInset + 24),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                12,
+                14,
+                (bottomInset > 0 ? bottomInset : 20) + 16,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
