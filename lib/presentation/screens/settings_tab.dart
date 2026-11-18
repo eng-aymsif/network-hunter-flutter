@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
+import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
 
@@ -38,6 +40,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _usePopupSubmit = true;
   bool _skipAlreadyTested = false;
   bool _initialized = false;
+  bool _isRefreshingSub = false;
 
   @override
   void didChangeDependencies() {
@@ -169,6 +172,10 @@ class _SettingsTabState extends State<SettingsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // بطاقة بيانات ترخيص واشتراك الجهاز (حقول للقراءة فقط)
+                _buildSubscriptionCard(context),
+                const SizedBox(height: 12),
+
                 // بطاقة 0: نوع محرك الفحص (WebKit vs HTTP) وخيارات حقن الجافاسكريبت
                 _buildSectionCard(
                   title: 'محرك الفحص وديناميكية صفحات الدخول (Captive Portal JS)',
@@ -1122,6 +1129,328 @@ class _SettingsTabState extends State<SettingsTab> {
             const Divider(height: 16),
             ...children,
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionCard(BuildContext context) {
+    final sub = SubscriptionService.instance.getLocalSubscription();
+    final statusColor = sub?.isAvailable == true
+        ? AppColors.success
+        : (sub?.isPending == true ? AppColors.warning : AppColors.danger);
+    final statusText = sub?.isAvailable == true
+        ? 'متاح 🟢 (نشط ومعتمد)'
+        : (sub?.isPending == true
+            ? 'قيد الانتظار ⏳'
+            : (sub?.isStopped == true ? 'متوقف 🚫' : 'غير مسجل ⚪'));
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: AppColors.primary.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.verified_user_rounded,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'بيانات ترخيص واشتراك الجهاز',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        'حقول للقراءة فقط - مسجلة في السيرفر الرسمي',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // زر تحديث بيانات الاشتراك من السيرفر
+                IconButton(
+                  tooltip: 'تحديث بيانات الاشتراك من السيرفر',
+                  icon: _isRefreshingSub
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                  onPressed: _isRefreshingSub
+                      ? null
+                      : () async {
+                          setState(() => _isRefreshingSub = true);
+                          try {
+                            final updated = await SubscriptionService.instance
+                                .checkSubscription(forceRefresh: true);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'تم تحديث بيانات الاشتراك بنجاح (الحالة: ${updated.status})',
+                                    style: const TextStyle(fontFamily: 'Cairo'),
+                                  ),
+                                  backgroundColor: updated.isAvailable
+                                      ? AppColors.success
+                                      : AppColors.warning,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'تعذر تحديث الاشتراك: $e',
+                                    style: const TextStyle(fontFamily: 'Cairo'),
+                                  ),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isRefreshingSub = false);
+                            }
+                          }
+                        },
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+
+            // معرف الجهاز
+            _buildReadOnlyField(
+              context: context,
+              label: 'معرف الجهاز الفريد (Device ID)',
+              value: sub?.deviceId ?? '',
+              icon: Icons.phone_android_rounded,
+              canCopy: true,
+              helperText: 'معرف الأمان المشفر المعتمد لدى السيرفر',
+            ),
+
+            // الاسم الكامل ورقم الهاتف
+            Row(
+              children: [
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'الاسم الكامل للمشترك',
+                    value: sub?.fullName ?? '',
+                    icon: Icons.person_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'رقم الهاتف المسجل',
+                    value: sub?.phoneNumber ?? '',
+                    icon: Icons.phone_rounded,
+                    canCopy: true,
+                  ),
+                ),
+              ],
+            ),
+
+            // رقم الطلب وحالة الاشتراك
+            Row(
+              children: [
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'رقم طلب الاشتراك (Request ID)',
+                    value: sub?.requestId ?? '',
+                    icon: Icons.receipt_long_rounded,
+                    canCopy: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'حالة الاشتراك',
+                    value: statusText,
+                    icon: Icons.info_outline_rounded,
+                    valueColor: statusColor,
+                  ),
+                ),
+              ],
+            ),
+
+            // نوع الحصة والكروت المسموحة
+            Row(
+              children: [
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'نظام ونوع الحصة (Limit Type)',
+                    value: sub?.isDaily == true
+                        ? 'تجدد يومي (Daily Quota)'
+                        : 'إجمالي الحساب (Lifetime)',
+                    icon: Icons.all_inclusive_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'الكروت المسموح اصطيادها',
+                    value: '${sub?.allowedCards ?? 0} كرت',
+                    icon: Icons.filter_9_plus_rounded,
+                  ),
+                ),
+              ],
+            ),
+
+            // الكروت المصطادة والرصيد المتبقي
+            Row(
+              children: [
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: sub?.isDaily == true
+                        ? 'المصطادة اليوم (${sub?.cardsHuntedToday ?? 0})'
+                        : 'إجمالي المصطادة (${sub?.totalCardsHunted ?? 0})',
+                    value:
+                        '${sub?.isDaily == true ? sub?.cardsHuntedToday ?? 0 : sub?.totalCardsHunted ?? 0} كرت',
+                    icon: Icons.check_circle_outline_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildReadOnlyField(
+                    context: context,
+                    label: 'الرصيد المتبقي المتاح',
+                    value: '${sub?.remainingCards ?? 0} كرت',
+                    icon: Icons.account_balance_wallet_outlined,
+                    valueColor: (sub?.remainingCards ?? 0) > 0
+                        ? AppColors.success
+                        : AppColors.danger,
+                  ),
+                ),
+              ],
+            ),
+
+            // إصدار التطبيق ورقم البناء
+            _buildReadOnlyField(
+              context: context,
+              label: 'إصدار التطبيق وحماية الأمان',
+              value:
+                  'v${SubscriptionService.currentAppVersion} (Build ${SubscriptionService.currentVersionCode}) - محمي ضد الـ Downgrade',
+              icon: Icons.security_rounded,
+              valueColor: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required IconData icon,
+    bool canCopy = false,
+    Color? valueColor,
+    String? helperText,
+  }) {
+    final displayVal = value.trim().isNotEmpty ? value.trim() : 'غير متوفر';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextFormField(
+        key: ValueKey('readonly_${label}_$value'),
+        initialValue: displayVal,
+        readOnly: true,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: valueColor,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 11.5),
+          helperText: helperText,
+          helperStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 9.5),
+          prefixIcon: Icon(icon, size: 19, color: AppColors.primary),
+          suffixIcon: canCopy && value.trim().isNotEmpty
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.copy_rounded,
+                    size: 17,
+                    color: AppColors.accent,
+                  ),
+                  tooltip: 'نسخ $label',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: value.trim()));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'تم نسخ $label بنجاح',
+                          style: const TextStyle(fontFamily: 'Cairo'),
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+            ),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         ),
       ),
     );

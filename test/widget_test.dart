@@ -107,7 +107,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('إعدادات الشبكة ومسارات صفحة الدخول'), findsOneWidget);
 
-    final urlField = find.byType(TextFormField).first;
+    final urlField = find.byWidgetPredicate((w) => w is TextFormField && w.controller != null).first;
     await tester.enterText(urlField, 'https://network.local');
 
     await tester.tap(find.text('التحكم'));

@@ -196,6 +196,8 @@ class HunterEngine {
   final void Function(String currentNum, int attempts, int found, int unbans)?
   onStats;
   final void Function(String cardNumber, String loginUrl)? onFound;
+  final void Function(String cardNumber, String status, String portalMessage)?
+  onCardTested;
   final void Function(EngineStatus status, String message)? onStatusChange;
   final void Function()? onFinished;
 
@@ -234,6 +236,7 @@ class HunterEngine {
     this.onLog,
     this.onStats,
     this.onFound,
+    this.onCardTested,
     this.onStatusChange,
     this.onFinished,
   }) : db = db is HunterDatabase ? db : HunterDatabaseAdapter(db),
@@ -564,6 +567,11 @@ class HunterEngine {
             portalMessage: 'تم تسجيل الدخول بنجاح واصطياد الكرت 🎉',
             isLast: true,
           );
+          onCardTested?.call(
+            currentNumber,
+            'success',
+            'تم تسجيل الدخول بنجاح واصطياد الكرت 🎉',
+          );
           await SubscriptionService.instance.onCardHunted(count: 1);
           onFound?.call(currentNumber, finalUrl);
           onStats?.call(currentNumber, totalAttempts, foundCount, unbanCount);
@@ -617,6 +625,11 @@ class HunterEngine {
             status: 'failed',
             portalMessage: portalMsg,
             isLast: true,
+          );
+          onCardTested?.call(
+            currentNumber,
+            'failed',
+            portalMsg,
           );
           final nextNum = NumberFormatter.nextNumber(currentNumber);
           await db.setState('last_tested_number', nextNum);

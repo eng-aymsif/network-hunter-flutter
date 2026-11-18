@@ -203,6 +203,13 @@ class EngineProvider extends ChangeNotifier {
           alertType: 'success',
         );
       },
+      onCardTested: (cardNumber, status, portalMessage) {
+        _cardsProvider?.onTestedCardRecorded(
+          cardNumber: cardNumber,
+          status: status,
+          portalMessage: portalMessage,
+        );
+      },
       onStatusChange: (status, message) {
         _status = status;
         _statusText = message;
@@ -261,6 +268,21 @@ class EngineProvider extends ChangeNotifier {
 
       service.on('cardFound').listen((event) {
         _cardsProvider?.loadCards();
+      });
+
+      service.on('cardTested').listen((event) {
+        final cardNum = event?['cardNumber']?.toString() ?? '';
+        final status = event?['status']?.toString() ?? 'failed';
+        final msg = event?['portalMessage']?.toString() ?? '';
+        if (cardNum.isNotEmpty) {
+          _cardsProvider?.onTestedCardRecorded(
+            cardNumber: cardNum,
+            status: status,
+            portalMessage: msg,
+          );
+        } else {
+          _cardsProvider?.loadTestedCards(silent: true);
+        }
       });
 
       service.on('engineFinished').listen((_) {

@@ -72,15 +72,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       _statusMessage = 'جارِ التحقق من الاتصال بالإنترنت...';
     });
 
+    // استرجاع بيانات الاشتراك المحفوظة محلياً في قواعد البيانات
+    final localSub = SubscriptionService.instance.getLocalSubscription();
+    final bool hasPreviousAvailable = localSub != null && localSub.isAvailable;
+
     // 1. فحص الاتصال بالإنترنت
     final hasInternet = await SubscriptionService.instance.checkInternetConnection();
     if (!mounted) return;
 
     if (!hasInternet) {
-      // محاولة التحقق إذا كان هناك اشتراك متاح محفوظ محلياً
-      final localSub = SubscriptionService.instance.currentSubscription;
-      if (localSub != null && localSub.isAvailable) {
-        // التحقق من سلامة إصدار التطبيق ومكافحة تثبيت إصدار قديم
+      // الحالة الأولى: إذا كان في قواعد البيانات اشتراك سابق وحالته متاح
+      // يتم التحقق من السيرفر فقط إذا توفر وصول للإنترنت، وفي حال عدم توفره يُفتح التطبيق بالاشتراك المحلي
+      if (hasPreviousAvailable) {
+        // التحقق من سلامة إصدار التطبيق ومكافحة الـ Downgrade
         final versionCheck = SubscriptionService.instance.verifyVersionIntegrity(localSub);
         if (!versionCheck.isAllowed) {
           Navigator.of(context).pushReplacement(
@@ -96,18 +100,27 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           return;
         }
 
-        // التحقق من سلامة التوقيت
+        // التحقق من سلامة التوقيت من التلاعب
         final timeCheck = SubscriptionService.instance.verifyTimeIntegrity();
-        if (timeCheck.isValid) {
-          _proceedToHome();
+        if (!timeCheck.isValid) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = timeCheck.errorMessage ?? 'خطأ في توقيت النظام';
+          });
           return;
         }
+
+        // الدخول للتطبيق اعتماداً على الاشتراك المتاح المعتمد محلياً
+        _proceedToHome();
+        return;
       }
 
+      // الحالة الثانية: بقية الحالات (لا يوجد اشتراك سابق، أو الطلب قيد الانتظار أو متوقف)
+      // في هذه الحالات يجب التحقق الإلزامي من الاشتراك عبر الإنترنت
       setState(() {
         _hasError = true;
         _errorMessage =
-            'تعذر الاتصال بالإنترنت أو بسيرفر التطبيق (https://main.terhabb.com).\nيرجى التأكد من تشغيل الواي فاي أو بيانات الهاتف والمحاولة مجدداً.';
+            'يلزم توفر اتصال بالإنترنت للتحقق من حالة اشتراكك وتفعيل التطبيق.\nيرجى التأكد من تشغيل الواي فاي أو بيانات الهاتف والنقر على "إعادة المحاولة".';
       });
       return;
     }

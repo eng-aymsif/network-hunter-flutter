@@ -123,6 +123,13 @@ Future<void> onBackgroundServiceStart(ServiceInstance service) async {
           alertType: 'success',
         );
       },
+      onCardTested: (cardNumber, status, portalMessage) {
+        service.invoke('cardTested', {
+          'cardNumber': cardNumber,
+          'status': status,
+          'portalMessage': portalMessage,
+        });
+      },
       onFinished: () {
         currentStatus = 'ready';
         currentStatusMessage = 'جاهز ومستعد 🟢';

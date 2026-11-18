@@ -49,6 +49,17 @@ class SubscriptionService {
   SubscriptionModel? get currentSubscription => _currentSubscription;
   String? get deviceId => _cachedDeviceId;
 
+  /// الحصول على بيانات الاشتراك المحفوظة محلياً في قواعد البيانات إن وجدت
+  SubscriptionModel? getLocalSubscription() {
+    if (_currentSubscription != null) return _currentSubscription;
+    final localData = HiveHelper.instance.getAllSubscriptionData();
+    if (localData.isNotEmpty && localData.containsKey('status')) {
+      _currentSubscription = SubscriptionModel.fromJson(localData);
+      return _currentSubscription;
+    }
+    return null;
+  }
+
   /// الحصول على معرف فريد ومستقر للجهاز (Device ID)
   Future<String> getDeviceId() async {
     if (_cachedDeviceId != null && _cachedDeviceId!.isNotEmpty) {

@@ -112,15 +112,54 @@ class CardsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadTestedCards() async {
-    _isLoadingTested = true;
-    notifyListeners();
+  Future<void> loadTestedCards({bool silent = false}) async {
+    if (!silent) {
+      _isLoadingTested = true;
+      notifyListeners();
+    }
     try {
       _testedCards = await _db.getAllTestedCards();
     } finally {
-      _isLoadingTested = false;
+      if (!silent) {
+        _isLoadingTested = false;
+      }
       notifyListeners();
     }
+  }
+
+  /// إضافة أو تحديث كرت تم اختباره بشكل فوري ولحظي دون وميض تحميل
+  void onTestedCardRecorded({
+    required String cardNumber,
+    required String status,
+    required String portalMessage,
+  }) {
+    final now = DateTime.now();
+    final nowStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    final newItem = TestedCardModel(
+      cardNumber: cardNumber,
+      testedAt: nowStr,
+      status: status,
+      portalMessage: portalMessage,
+      isLastTested: true,
+    );
+
+    // إلغاء وسم isLastTested من باقي الكروت في الذاكرة
+    for (int i = 0; i < _testedCards.length; i++) {
+      if (_testedCards[i].isLastTested) {
+        _testedCards[i] = _testedCards[i].copyWith(isLastTested: false);
+      }
+    }
+
+    final index = _testedCards.indexWhere((c) => c.cardNumber == cardNumber);
+    if (index >= 0) {
+      _testedCards[index] = newItem;
+    } else {
+      _testedCards.insert(0, newItem);
+    }
+    notifyListeners();
   }
 
   Future<void> clearAllTestedCards() async {
