@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:networking/core/constants/app_colors.dart';
+import 'package:networking/core/utils/native_bridge.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/tested_card_model.dart';
 import 'package:networking/presentation/providers/cards_provider.dart';
@@ -281,24 +283,13 @@ class _CardsTabState extends State<CardsTab> {
                   Wrap(
                     children: [
                       IconButton(
-                        tooltip: 'تنزيل كملف Excel (.xlsx)',
+                        tooltip: 'تصدير وحفظ كملف Excel (.xlsx) في الملفات',
                         icon: const Icon(
                           Icons.file_download,
                           color: AppColors.primary,
                         ),
-                        onPressed: () async {
-                          final ok = await cardsProv.exportCardsToExcel();
-                          if (!ok && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'لا توجد كروت للتصدير أو حدث خطأ',
-                                  style: TextStyle(fontFamily: 'Cairo'),
-                                ),
-                              ),
-                            );
-                          }
-                        },
+                        onPressed: () =>
+                            _handleExcelExport(context, cardsProv),
                       ),
                       IconButton(
                         tooltip: 'مشاركة البيانات كـ نص منسق',
@@ -1348,6 +1339,399 @@ class _CardsTabState extends State<CardsTab> {
           ),
         ],
       ),
+    );
+  }
+
+  // ==================== تصدير وحفظ ملف الإكسل في مجلد الملفات ====================
+  Future<void> _handleExcelExport(
+    BuildContext context,
+    CardsProvider cardsProv,
+  ) async {
+    if (cardsProv.totalCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '⚠️ لا توجد كروت مصطادة لتصديرها حالياً',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    final hasPermission = await NativeBridge.checkStoragePermission();
+    if (!hasPermission && context.mounted) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.folder_open_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'إذن الوصول إلى الملفات',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'لحفظ ملف الإكسل في مجلد واضح ومخصص (Network_Hunter) داخل تطبيق "الملفات" في هاتفك:\n\n'
+            '• يمكنك منح إذن الوصول الكامل للملفات ليتم الحفظ في المجلد الرئيسي للهاتف ومجلد التنزيلات.\n'
+            '• أو الحفظ المباشر فوراً في مجلد التنزيلات (Download / Network_Hunter).',
+            style: TextStyle(fontFamily: 'Cairo', fontSize: 13, height: 1.55),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text(
+                'إلغاء',
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'direct_save'),
+              icon: const Icon(Icons.save_alt_rounded, size: 18),
+              label: const Text(
+                'حفظ مباشر في التنزيلات',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'grant_permission'),
+              icon: const Icon(Icons.verified_user_rounded, size: 18),
+              label: const Text(
+                'منح إذن الملفات والحفظ',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == null || choice == 'cancel') return;
+      if (choice == 'grant_permission') {
+        await NativeBridge.requestStoragePermission();
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+    }
+
+    final ok = await cardsProv.exportCardsToExcel();
+    if (!context.mounted) return;
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '❌ تعذر تصدير ملف الإكسل، يرجى التأكد من منح إذن الملفات',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final res = cardsProv.lastExportResult ?? {};
+    _showExcelExportSuccessDialog(context, res);
+  }
+
+  void _showExcelExportSuccessDialog(
+    BuildContext context,
+    Map<String, dynamic> exportData,
+  ) {
+    final fileName = exportData['fileName']?.toString() ?? 'Hunted_Cards.xlsx';
+    final displayFolder = exportData['displayFolder']?.toString() ??
+        'الملفات > التنزيلات (Download) > Network_Hunter';
+    final filePath = exportData['filePath']?.toString() ?? '';
+    final sharePath = exportData['sharePath']?.toString() ?? filePath;
+    final count = exportData['exportedCount'] ?? 0;
+    const excelMime =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.table_view_rounded,
+                color: AppColors.success,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تم حفظ ملف الإكسل بنجاح 🎉',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'محفوظ في مجلد الملفات بجهازك',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 16),
+              _buildExportInfoRow(
+                icon: Icons.folder_special_rounded,
+                label: 'المجلد داخل تطبيق الملفات:',
+                value: displayFolder,
+                valueColor: AppColors.primary,
+              ),
+              const SizedBox(height: 10),
+              _buildExportInfoRow(
+                icon: Icons.insert_drive_file_rounded,
+                label: 'اسم ملف الإكسل:',
+                value: fileName,
+              ),
+              const SizedBox(height: 10),
+              _buildExportInfoRow(
+                icon: Icons.confirmation_number_rounded,
+                label: 'عدد الكروت المصدرة:',
+                value: '$count كرت',
+                valueColor: AppColors.success,
+              ),
+              if (filePath.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          filePath,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10.5,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'نسخ مسار الملف',
+                        icon: const Icon(
+                          Icons.copy_rounded,
+                          size: 17,
+                          color: AppColors.accent,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: filePath));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'تم نسخ مسار الملف إلى الحافظة 📋',
+                                style: TextStyle(fontFamily: 'Cairo'),
+                              ),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () async {
+                        final opened = await NativeBridge.openFile(
+                          path: sharePath,
+                          mimeType: excelMime,
+                        );
+                        if (!opened && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'لا يوجد تطبيق عارض جداول (Excel/Sheets) مثبت لفتح الملف مباشرة، يمكنك مشاركته أو فتحه من تطبيق الملفات.',
+                                style: TextStyle(fontFamily: 'Cairo'),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                      label: const Text(
+                        'فتح الملف',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () {
+                        NativeBridge.shareFile(
+                          path: sharePath,
+                          mimeType: excelMime,
+                          title: 'مشاركة كروت الشبكة المصطادة ($fileName)',
+                        );
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 17),
+                      label: const Text(
+                        'مشاركة',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'تم',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExportInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: valueColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

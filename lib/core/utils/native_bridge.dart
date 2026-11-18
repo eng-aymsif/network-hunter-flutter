@@ -105,6 +105,60 @@ class NativeBridge {
     }
   }
 
+  /// التحقق من منح إذن الوصول إلى الملفات لحفظ الإكسل في مجلدات الجهاز
+  static Future<bool> checkStoragePermission() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('checkStoragePermission');
+      return res ?? false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// طلب إذن الوصول إلى الملفات من نظام أندرويد
+  static Future<void> requestStoragePermission() async {
+    try {
+      await _channel.invokeMethod('requestStoragePermission');
+    } catch (_) {}
+  }
+
+  /// حفظ ملف في مجلد عام داخل تطبيق الملفات (Download/Network_Hunter أو Network_Hunter)
+  static Future<Map<String, dynamic>> saveFileToPublicFolder({
+    required String fileName,
+    required Uint8List bytes,
+    String? mimeType,
+  }) async {
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>(
+        'saveFileToPublicFolder',
+        {
+          'fileName': fileName,
+          'bytes': bytes,
+          'mimeType': mimeType,
+        },
+      );
+      return res ?? {'success': false};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// فتح ملف مُصدر مباشرة عبر تطبيقات العرض في الجهاز (مثل Excel أو Sheets)
+  static Future<bool> openFile({
+    required String path,
+    String? mimeType,
+  }) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('openFile', {
+        'path': path,
+        'mimeType': mimeType,
+      });
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// إبقاء الشاشة مفعلة أثناء الفحص لمنع سكون المعالج
   static Future<void> setKeepScreenOn(bool enable) async {
     try {

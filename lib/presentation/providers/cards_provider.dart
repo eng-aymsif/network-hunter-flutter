@@ -28,6 +28,7 @@ class CardsProvider extends ChangeNotifier {
   bool _isLoggingOut = false;
   String _autoLoginStatus = '';
   String? _lastAutoConnectedCard;
+  Map<String, dynamic>? _lastExportResult;
 
   List<CardModel> get cards {
     if (_searchQuery.isEmpty) return _cards;
@@ -50,6 +51,7 @@ class CardsProvider extends ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
   String get autoLoginStatus => _autoLoginStatus;
   String? get lastAutoConnectedCard => _lastAutoConnectedCard;
+  Map<String, dynamic>? get lastExportResult => _lastExportResult;
 
   List<TestedCardModel> get testedCards {
     if (_testedSearchQuery.isEmpty) return _testedCards;
@@ -370,30 +372,61 @@ class CardsProvider extends ChangeNotifier {
       final bytes = excel.encode();
       if (bytes == null) return false;
 
-      // حفظ الملف باسم احترافي معبر ومزود بالتاريخ والوقت
-      final storagePath = await NativeBridge.getAppStoragePath();
-      final targetDir = storagePath.isNotEmpty
-          ? Directory(storagePath)
-          : Directory.systemTemp;
-
       final now = DateTime.now();
       final dateStr =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final timeStr =
           '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}-${now.second.toString().padLeft(2, '0')}';
       final fileName = 'Hunted_Cards_${dateStr}_$timeStr.xlsx';
+      const excelMime =
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-      final filePath = '${targetDir.path}/$fileName';
+      // 1. الحفظ الذكي في مجلد الملفات العام في أندرويد (Download/Network_Hunter أو Network_Hunter)
+      final nativeRes = await NativeBridge.saveFileToPublicFolder(
+        fileName: fileName,
+        bytes: Uint8List.fromList(bytes),
+        mimeType: excelMime,
+      );
+
+      if (nativeRes['success'] == true) {
+        _lastExportResult = {
+          'success': true,
+          'fileName': fileName,
+          'filePath': nativeRes['filePath']?.toString() ?? '',
+          'sharePath': nativeRes['sharePath']?.toString() ??
+              nativeRes['filePath']?.toString() ??
+              '',
+          'displayFolder': nativeRes['displayFolder']?.toString() ??
+              'الملفات > التنزيلات (Download) > Network_Hunter',
+          'exportedCount': listToExport.length,
+        };
+        notifyListeners();
+        return true;
+      }
+
+      // 2. مسار احتياطي لسطح المكتب أو بيئات الاختبار
+      final storagePath = await NativeBridge.getAppStoragePath();
+      final baseDir = storagePath.isNotEmpty
+          ? Directory('$storagePath/Network_Hunter')
+          : Directory('${Directory.systemTemp.path}/Network_Hunter');
+      if (!baseDir.existsSync()) {
+        baseDir.createSync(recursive: true);
+      }
+
+      final filePath = '${baseDir.path}/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(bytes, flush: true);
 
-      // مشاركة الملف عبر Android Intent
-      return await NativeBridge.shareFile(
-        path: filePath,
-        mimeType:
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        title: 'مشاركة كروت الشبكة المصطادة ($fileName)',
-      );
+      _lastExportResult = {
+        'success': true,
+        'fileName': fileName,
+        'filePath': filePath,
+        'sharePath': filePath,
+        'displayFolder': baseDir.path,
+        'exportedCount': listToExport.length,
+      };
+      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint('Export to Excel error: $e');
       return false;

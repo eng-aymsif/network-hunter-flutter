@@ -733,6 +733,34 @@ class _SettingsTabState extends State<SettingsTab> {
                           onPressed: () =>
                               NativeBridge.requestIgnoreBatteryOptimizations(),
                         ),
+                        OutlinedButton.icon(
+                          icon: const Icon(
+                            Icons.folder_open_rounded,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            'إذن الوصول إلى الملفات (حفظ الإكسل)',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          onPressed: () async {
+                            final granted =
+                                await NativeBridge.checkStoragePermission();
+                            if (granted && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '✅ إذن الوصول إلى الملفات ممنوح ومفعل بالفعل!',
+                                    style: TextStyle(fontFamily: 'Cairo'),
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } else {
+                              await NativeBridge.requestStoragePermission();
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ],

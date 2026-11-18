@@ -209,6 +209,30 @@ public class MainActivity extends FlutterActivity {
                             result.success(true);
                             break;
                         }
+                        case "checkStoragePermission": {
+                            result.success(checkStoragePermissionGranted());
+                            break;
+                        }
+                        case "requestStoragePermission": {
+                            requestStoragePermission();
+                            result.success(true);
+                            break;
+                        }
+                        case "saveFileToPublicFolder": {
+                            String fileName = call.argument("fileName");
+                            byte[] bytes = call.argument("bytes");
+                            String mimeType = call.argument("mimeType");
+                            Map<String, Object> saveRes = saveFileToPublicFolder(fileName, bytes, mimeType);
+                            result.success(saveRes);
+                            break;
+                        }
+                        case "openFile": {
+                            String filePath = call.argument("path");
+                            String mimeType = call.argument("mimeType");
+                            boolean opened = openExternalFile(filePath, mimeType);
+                            result.success(opened);
+                            break;
+                        }
                         default:
                             result.notImplemented();
                             break;
@@ -637,11 +661,199 @@ public class MainActivity extends FlutterActivity {
                     perms.add(Manifest.permission.POST_NOTIFICATIONS);
                 }
             }
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                    perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+                }
+            }
             if (!perms.isEmpty()) {
                 ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 101);
             } else if (!isIgnoringBatteryOptimizations()) {
                 requestIgnoreBatteryOptimizations();
             }
+        }
+    }
+
+    private boolean checkStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return android.os.Environment.isExternalStorageManager();
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
+    }
+
+    private void requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception ignored) {}
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                new String[]{
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                },
+                102
+            );
+        }
+    }
+
+    private Map<String, Object> saveFileToPublicFolder(String fileName, byte[] bytes, String mimeType) {
+        Map<String, Object> res = new HashMap<>();
+        if (fileName == null || bytes == null) {
+            res.put("success", false);
+            res.put("error", "بيانات الملف غير صالحة");
+            return res;
+        }
+
+        String effectiveMime = mimeType != null && !mimeType.isEmpty()
+            ? mimeType
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        // 1. حفظ نسخة في مجلد التطبيق الخارجي لاستخدامها السلس في المشاركة أو الفتح الاحتياطي
+        String fallbackSharePath = "";
+        try {
+            java.io.File appExtDir = getExternalFilesDir(null);
+            if (appExtDir == null) appExtDir = getFilesDir();
+            java.io.File subDir = new java.io.File(appExtDir, "Network_Hunter");
+            if (!subDir.exists()) subDir.mkdirs();
+            java.io.File appFile = new java.io.File(subDir, fileName);
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(appFile)) {
+                fos.write(bytes);
+                fos.flush();
+            }
+            fallbackSharePath = appFile.getAbsolutePath();
+        } catch (Exception ignored) {}
+
+        // 2. محاولة الحفظ المباشر في المجلد العام داخل تطبيق الملفات: /storage/emulated/0/Download/Network_Hunter
+        try {
+            java.io.File publicDownloads = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            );
+            java.io.File hunterFolder = new java.io.File(publicDownloads, "Network_Hunter");
+            if (!hunterFolder.exists()) {
+                hunterFolder.mkdirs();
+            }
+            java.io.File targetFile = new java.io.File(hunterFolder, fileName);
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(targetFile)) {
+                fos.write(bytes);
+                fos.flush();
+            }
+
+            // أيضاً إذا كان إذن الوصول الكامل للملفات ممنوحاً، نحفظ نسخة في المجلد الرئيسي /storage/emulated/0/Network_Hunter
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || android.os.Environment.isExternalStorageManager()) {
+                try {
+                    java.io.File rootDir = new java.io.File(
+                        android.os.Environment.getExternalStorageDirectory(),
+                        "Network_Hunter"
+                    );
+                    if (!rootDir.exists()) rootDir.mkdirs();
+                    java.io.File rootFile = new java.io.File(rootDir, fileName);
+                    try (java.io.FileOutputStream rfos = new java.io.FileOutputStream(rootFile)) {
+                        rfos.write(bytes);
+                        rfos.flush();
+                    }
+                    android.media.MediaScannerConnection.scanFile(
+                        getApplicationContext(),
+                        new String[]{rootFile.getAbsolutePath()},
+                        new String[]{effectiveMime},
+                        null
+                    );
+                } catch (Exception ignored) {}
+            }
+
+            android.media.MediaScannerConnection.scanFile(
+                getApplicationContext(),
+                new String[]{targetFile.getAbsolutePath()},
+                new String[]{effectiveMime},
+                null
+            );
+
+            res.put("success", true);
+            res.put("filePath", targetFile.getAbsolutePath());
+            res.put("sharePath", !fallbackSharePath.isEmpty() ? fallbackSharePath : targetFile.getAbsolutePath());
+            res.put("displayFolder", "الملفات > التنزيلات (Download) > Network_Hunter");
+            res.put("fileName", fileName);
+            return res;
+        } catch (Exception ignored) {}
+
+        // 3. على أندرويد 10+ (API 29+)، الحفظ المضمون عبر MediaStore.Downloads داخل مجلد Download/Network_Hunter
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                android.content.ContentValues values = new android.content.ContentValues();
+                values.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                values.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, effectiveMime);
+                values.put(
+                    android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS + "/Network_Hunter"
+                );
+
+                android.content.ContentResolver resolver = getContentResolver();
+                Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri != null) {
+                    try (java.io.OutputStream os = resolver.openOutputStream(uri)) {
+                        if (os != null) {
+                            os.write(bytes);
+                            os.flush();
+                            res.put("success", true);
+                            res.put("filePath", "/storage/emulated/0/Download/Network_Hunter/" + fileName);
+                            res.put("sharePath", fallbackSharePath);
+                            res.put("displayFolder", "الملفات > التنزيلات (Download) > Network_Hunter");
+                            res.put("fileName", fileName);
+                            return res;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 4. الملاذ الاحتياطي الأخير
+        if (!fallbackSharePath.isEmpty()) {
+            res.put("success", true);
+            res.put("filePath", fallbackSharePath);
+            res.put("sharePath", fallbackSharePath);
+            res.put("displayFolder", "ملفات التطبيق > Network_Hunter");
+            res.put("fileName", fileName);
+            return res;
+        }
+
+        res.put("success", false);
+        res.put("error", "تعذر حفظ الملف في الذاكرة");
+        return res;
+    }
+
+    private boolean openExternalFile(String filePath, String mimeType) {
+        if (filePath == null || filePath.isEmpty()) return false;
+        try {
+            java.io.File file = new java.io.File(filePath);
+            if (!file.exists()) return false;
+            Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                getApplicationContext().getPackageName() + ".fileprovider",
+                file
+            );
+            Intent openIntent = new Intent(Intent.ACTION_VIEW);
+            openIntent.setDataAndType(
+                contentUri,
+                mimeType != null ? mimeType : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            );
+            openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(Intent.createChooser(openIntent, "فتح ملف الإكسل عبر"));
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 }
