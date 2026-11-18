@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 
 import 'package:networking/core/services/subscription_service.dart';
 import 'package:networking/core/utils/number_formatter.dart';
+import 'package:networking/core/utils/platform_env.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/domain/engine/hunter_adapters.dart';
 import 'package:networking/domain/engine/hunter_interfaces.dart';
@@ -25,30 +25,28 @@ class DefaultConnectivityChecker implements ConnectivityChecker {
       final uri = Uri.parse(safeUrl);
       final host = uri.host.isNotEmpty
           ? uri.host
-          : (InternetAddress.tryParse(
-                  targetUrl.split('/').first.split(':').first,
-                )?.address ??
-                '1.1.1.1');
+          : targetUrl.split('/').first.split(':').first;
       final port = uri.hasPort && uri.port != 0
           ? uri.port
           : (uri.scheme == 'https' ? 443 : 80);
 
       // Probe gateway/host with a strict 3-second timeout
-      final socket = await Socket.connect(
-        host,
+      if (await PlatformEnv.probePort(
+        host.isNotEmpty ? host : '1.1.1.1',
         port,
         timeout: const Duration(seconds: 3),
-      );
-      socket.destroy();
-      return true;
-    } catch (_) {
-      try {
-        final lookup = await InternetAddress.lookup('google.com')
-            .timeout(const Duration(seconds: 3));
-        return lookup.isNotEmpty && lookup.first.rawAddress.isNotEmpty;
-      } catch (_) {
-        return false;
+      )) {
+        return true;
       }
+      return await PlatformEnv.lookupHost(
+        'google.com',
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (_) {
+      return await PlatformEnv.lookupHost(
+        'google.com',
+        timeout: const Duration(seconds: 3),
+      );
     }
   }
 }

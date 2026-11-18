@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:networking/core/utils/platform_env.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/settings_model.dart';
 import 'package:networking/data/models/tested_card_model.dart';
@@ -39,8 +39,10 @@ class HiveHelper implements HunterDatabase {
       try {
         await Hive.initFlutter();
       } catch (_) {
-        final temp = Directory.systemTemp.createTempSync('hive_testing_');
-        Hive.init(temp.path);
+        final tempPath = PlatformEnv.createTempDirectorySync('hive_testing_');
+        if (tempPath.isNotEmpty) {
+          Hive.init(tempPath);
+        }
       }
     }
 

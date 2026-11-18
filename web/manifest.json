@@ -1,12 +1,12 @@
 {
-    "name": "networking",
-    "short_name": "networking",
+    "name": "Network Hunter Pro | صائد الشبكة الذكي",
+    "short_name": "Network Hunter",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0F172A",
+    "theme_color": "#1E3A8A",
+    "description": "نظام فحص واصطياد وإدارة كروت الشبكات الذكي متعدد البيئات (Android, Windows, Web)",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

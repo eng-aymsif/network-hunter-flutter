@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/core/constants/app_strings.dart';
 import 'package:networking/core/utils/native_bridge.dart';
+import 'package:networking/core/utils/platform_env.dart';
 import 'package:networking/presentation/providers/cards_provider.dart';
 import 'package:networking/presentation/providers/engine_provider.dart';
 import 'package:networking/presentation/providers/logs_provider.dart';
@@ -457,17 +458,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          // شارة صلاحيات الروت المدمجة
+          // شارة اسم الشبكة المتصل بها في الشاشات المتوسطة والعريضة (سطح المكتب والويب والتابلت)
+          if (MediaQuery.sizeOf(context).width >= 680 &&
+              engine.currentWifiSsid.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white12,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white24, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_rounded, size: 13, color: Colors.white70),
+                  const SizedBox(width: 5),
+                  Text(
+                    engine.currentWifiSsid,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // شارة البيئة وصلاحيات الشبكة المدمجة (Windows Pro / Web / Android Root)
           Container(
             margin: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-              color: engine.isRootAvailable
+              color: (PlatformEnv.isWindows || engine.isRootAvailable)
                   ? AppColors.success.withValues(alpha: 0.22)
                   : Colors.white12,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: engine.isRootAvailable
+                color: (PlatformEnv.isWindows || engine.isRootAvailable)
                     ? AppColors.success.withValues(alpha: 0.45)
                     : Colors.white24,
                 width: 0.8,
@@ -477,22 +507,30 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  engine.isRootAvailable
-                      ? Icons.check_circle_rounded
-                      : Icons.shield_outlined,
+                  PlatformEnv.isWindows
+                      ? Icons.desktop_windows_rounded
+                      : (PlatformEnv.isWeb
+                          ? Icons.public_rounded
+                          : (engine.isRootAvailable
+                              ? Icons.check_circle_rounded
+                              : Icons.shield_outlined)),
                   size: 13,
-                  color: engine.isRootAvailable
+                  color: (PlatformEnv.isWindows || engine.isRootAvailable)
                       ? AppColors.success
                       : Colors.white70,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  engine.isRootAvailable ? 'Root ✓' : 'Non-Root',
+                  PlatformEnv.isWindows
+                      ? 'Windows Auto-MAC ✓'
+                      : (PlatformEnv.isWeb
+                          ? 'Web Edition'
+                          : (engine.isRootAvailable ? 'Root ✓' : 'Non-Root')),
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
-                    color: engine.isRootAvailable
+                    color: (PlatformEnv.isWindows || engine.isRootAvailable)
                         ? AppColors.success
                         : Colors.white,
                   ),
@@ -542,8 +580,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   labelType: extendedRail
                       ? NavigationRailLabelType.none
                       : NavigationRailLabelType.all,
-                  minWidth: 80,
-                  minExtendedWidth: 232,
+                  minWidth: 84,
+                  minExtendedWidth: 236,
+                  leading: extendedRail
+                      ? Container(
+                          width: 212,
+                          margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                PlatformEnv.isWindows
+                                    ? Icons.computer_rounded
+                                    : (PlatformEnv.isWeb
+                                        ? Icons.language_rounded
+                                        : Icons.phone_android_rounded),
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'بيئة: ${PlatformEnv.platformName}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : null,
                   destinations: [
                     const NavigationRailDestination(
                       icon: Icon(Icons.dashboard_outlined),

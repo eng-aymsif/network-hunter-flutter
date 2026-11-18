@@ -509,18 +509,18 @@ class _CardsTabState extends State<CardsTab> {
                         ],
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-                      itemCount: cards.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
+                  : LayoutBuilder(
+                      builder: (context, listConstraints) {
+                        final isMultiColumn = listConstraints.maxWidth >= 760;
+
+                        Widget buildCardItem(BuildContext context, int index) {
                         final card = cards[index];
                         final isSelected =
                             cardsProv.selectedIds.contains(card.id);
 
                         return Card(
                           elevation: isSelected ? 3 : 1,
+                          margin: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
@@ -535,6 +535,13 @@ class _CardsTabState extends State<CardsTab> {
                             onTap: () {
                               if (isSelectionMode && card.id != null) {
                                 cardsProv.toggleSelectCard(card.id!);
+                              } else {
+                                _showCardOptionsDialog(
+                                  context,
+                                  card,
+                                  cardsProv,
+                                  settingsProv,
+                                );
                               }
                             },
                             onLongPress: () {
@@ -710,6 +717,22 @@ class _CardsTabState extends State<CardsTab> {
                                               }
                                             },
                                           ),
+                                          IconButton(
+                                            tooltip: 'المزيد من الإجراءات',
+                                            icon: const Icon(
+                                              Icons.more_vert_rounded,
+                                              size: 18,
+                                              color: AppColors.primary,
+                                            ),
+                                            onPressed: () {
+                                              _showCardOptionsDialog(
+                                                context,
+                                                card,
+                                                cardsProv,
+                                                settingsProv,
+                                              );
+                                            },
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -718,6 +741,30 @@ class _CardsTabState extends State<CardsTab> {
                               ),
                             ),
                           ),
+                        );
+                        }
+
+                        if (isMultiColumn) {
+                          return GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 540,
+                                  mainAxisExtent: 122,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 10,
+                                ),
+                            itemCount: cards.length,
+                            itemBuilder: buildCardItem,
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+                          itemCount: cards.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: buildCardItem,
                         );
                       },
                     ),

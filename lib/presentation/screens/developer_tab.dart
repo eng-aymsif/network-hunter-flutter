@@ -387,221 +387,10 @@ class _DeveloperTabState extends State<DeveloperTab>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 820),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 1. بطاقة الهيدر المتحركة للمطور
-              FadeTransition(
-                opacity: _headerFade,
-                child: SlideTransition(
-                  position: _headerSlide,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 24,
-                      horizontal: 18,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF06142E),
-                          Color(0xFF0A224E),
-                          Color(0xFF1565C0),
-                        ],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Hero(
-                          tag: 'developer_avatar_hero',
-                          child: Container(
-                            width: 92,
-                            height: 92,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF00E5FF), Color(0xFF00C853)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF00E5FF)
-                                      .withValues(alpha: 0.4),
-                                  blurRadius: 18,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(3),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF06142E),
-                              ),
-                              child: const Icon(
-                                Icons.radar_rounded,
-                                size: 48,
-                                color: Color(0xFF00E5FF),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          AppStrings.devName,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: const Text(
-                            'مهندس برمجيات ونظم شبكات متقدمة | Full-Stack & Flutter Architect',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11.5,
-                              color: Color(0xFF80D8FF),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // أزرار الوصول السريع لحسابات التواصل الاجتماعي
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () => _openExternalUrl(
-                                context,
-                                AppStrings.devWhatsappUrl,
-                                fallbackCopyText: AppStrings.devPhone,
-                                platformName: 'واتساب',
-                              ),
-                              icon: const Icon(Icons.chat_rounded, size: 19),
-                              label: const Text(
-                                'واتساب',
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF25D366),
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _openExternalUrl(
-                                context,
-                                AppStrings.devTelegramUrl,
-                                fallbackCopyText: AppStrings.devTelegramHandle,
-                                platformName: 'تيليجرام',
-                              ),
-                              icon: const Icon(Icons.send_rounded, size: 18),
-                              label: const Text(
-                                'تيليجرام @Aymsif',
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0088CC),
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _openExternalUrl(
-                                context,
-                                AppStrings.devFacebookUrl,
-                                fallbackCopyText: AppStrings.devFacebookUrl,
-                                platformName: 'فيسبوك',
-                              ),
-                              icon: const Icon(
-                                Icons.facebook_rounded,
-                                size: 20,
-                              ),
-                              label: const Text(
-                                'فيسبوك',
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1877F2),
-                                foregroundColor: Colors.white,
-                                elevation: 3,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 2. بطاقة قنوات وروابط التواصل الاجتماعي الرسمية
-              FadeTransition(
+    return LayoutBuilder(
+      builder: (context, outerConstraints) {
+        final isWideDesktop = outerConstraints.maxWidth >= 880;
+        final socialCard = FadeTransition(
                 opacity: _card1Fade,
                 child: Card(
                   elevation: 2,
@@ -711,11 +500,9 @@ class _DeveloperTabState extends State<DeveloperTab>
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+              );
 
-              // 3. بطاقة الهوية الرقمية ورموز المسح السريع (QR Code Hub)
-              FadeTransition(
+        final qrHubCard = FadeTransition(
                 opacity: _card2Fade,
                 child: Card(
                   elevation: 2,
@@ -927,47 +714,281 @@ class _DeveloperTabState extends State<DeveloperTab>
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+              );
 
-              // 4. تذييل الإصدار وحقوق الملكية
-              FadeTransition(
-                opacity: _card3Fade,
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Column(
-                    children: [
-                      Text(
-                        'Network Voucher Hunter & Auto-Unban • v1.1.0 Pro',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. بطاقة الهيدر المتحركة للمطور
+                  FadeTransition(
+                    opacity: _headerFade,
+                    child: SlideTransition(
+                      position: _headerSlide,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 24,
+                          horizontal: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF06142E),
+                              Color(0xFF0A224E),
+                              Color(0xFF1565C0),
+                            ],
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomLeft,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Hero(
+                              tag: 'developer_avatar_hero',
+                              child: Container(
+                                width: 92,
+                                height: 92,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF00E5FF),
+                                      Color(0xFF00C853),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00E5FF)
+                                          .withValues(alpha: 0.4),
+                                      blurRadius: 18,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(3),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFF06142E),
+                                  ),
+                                  child: const Icon(
+                                    Icons.radar_rounded,
+                                    size: 48,
+                                    color: Color(0xFF00E5FF),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Text(
+                              AppStrings.devName,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: const Text(
+                                'مهندس برمجيات ونظم شبكات متقدمة | Full-Stack & Flutter Architect',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 11.5,
+                                  color: Color(0xFF80D8FF),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+
+                            // أزرار الوصول السريع لحسابات التواصل الاجتماعي
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () => _openExternalUrl(
+                                    context,
+                                    AppStrings.devWhatsappUrl,
+                                    fallbackCopyText: AppStrings.devPhone,
+                                    platformName: 'واتساب',
+                                  ),
+                                  icon: const Icon(Icons.chat_rounded, size: 19),
+                                  label: const Text(
+                                    'واتساب',
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF25D366),
+                                    foregroundColor: Colors.white,
+                                    elevation: 3,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: () => _openExternalUrl(
+                                    context,
+                                    AppStrings.devTelegramUrl,
+                                    fallbackCopyText:
+                                        AppStrings.devTelegramHandle,
+                                    platformName: 'تيليجرام',
+                                  ),
+                                  icon: const Icon(Icons.send_rounded, size: 18),
+                                  label: const Text(
+                                    'تيليجرام @Aymsif',
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0088CC),
+                                    foregroundColor: Colors.white,
+                                    elevation: 3,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: () => _openExternalUrl(
+                                    context,
+                                    AppStrings.devFacebookUrl,
+                                    fallbackCopyText: AppStrings.devFacebookUrl,
+                                    platformName: 'فيسبوك',
+                                  ),
+                                  icon: const Icon(
+                                    Icons.facebook_rounded,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'فيسبوك',
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1877F2),
+                                    foregroundColor: Colors.white,
+                                    elevation: 3,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'جميع الحقوق محفوظة © المهندس أيمن محمد سيف المقطري',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+
+                  if (isWideDesktop)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 5, child: socialCard),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 6, child: qrHubCard),
+                      ],
+                    )
+                  else ...[
+                    socialCard,
+                    const SizedBox(height: 14),
+                    qrHubCard,
+                  ],
+                  const SizedBox(height: 14),
+
+                  // 4. تذييل الإصدار وحقوق الملكية
+                  FadeTransition(
+                    opacity: _card3Fade,
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Column(
+                        children: [
+                          Text(
+                            'Network Voucher Hunter & Auto-Unban • v1.1.0 Pro',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'جميع الحقوق محفوظة © المهندس أيمن محمد سيف المقطري',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

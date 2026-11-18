@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/foundation.dart';
@@ -404,29 +403,7 @@ class CardsProvider extends ChangeNotifier {
         return true;
       }
 
-      // 2. مسار احتياطي لسطح المكتب أو بيئات الاختبار
-      final storagePath = await NativeBridge.getAppStoragePath();
-      final baseDir = storagePath.isNotEmpty
-          ? Directory('$storagePath/Network_Hunter')
-          : Directory('${Directory.systemTemp.path}/Network_Hunter');
-      if (!baseDir.existsSync()) {
-        baseDir.createSync(recursive: true);
-      }
-
-      final filePath = '${baseDir.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
-
-      _lastExportResult = {
-        'success': true,
-        'fileName': fileName,
-        'filePath': filePath,
-        'sharePath': filePath,
-        'displayFolder': baseDir.path,
-        'exportedCount': listToExport.length,
-      };
-      notifyListeners();
-      return true;
+      return false;
     } catch (e) {
       debugPrint('Export to Excel error: $e');
       return false;

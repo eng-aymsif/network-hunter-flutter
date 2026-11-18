@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:networking/core/utils/platform_env.dart';
 import 'package:networking/core/utils/sound_helper.dart';
 import 'package:networking/data/datasources/unban_service.dart';
 import 'package:networking/domain/engine/hunter_interfaces.dart';
 
-HunterBrowserController? createPlatformBrowserController() => FlutterHunterBrowserController();
+HunterBrowserController? createPlatformBrowserController() =>
+    PlatformEnv.isAndroid ? FlutterHunterBrowserController() : null;
 HunterSoundPlayer createPlatformSoundPlayer() => FlutterHunterSoundPlayer();
 HunterUnbanHandler createPlatformUnbanHandler() => FlutterHunterUnbanHandler();
 
@@ -26,7 +28,6 @@ class FlutterHunterUnbanHandler implements HunterUnbanHandler {
 
 class FlutterHunterBrowserController implements HunterBrowserController {
   WebViewController? _controller;
-  final WebViewCookieManager _cookieManager = WebViewCookieManager();
 
   String? _lastAlertMessage;
 
@@ -378,7 +379,9 @@ class FlutterHunterBrowserController implements HunterBrowserController {
 
   @override
   Future<void> clearCookies() async {
-    await _cookieManager.clearCookies();
+    try {
+      await WebViewCookieManager().clearCookies();
+    } catch (_) {}
   }
 
   @override

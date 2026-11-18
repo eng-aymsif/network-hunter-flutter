@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:networking/core/utils/platform_env.dart';
 import 'package:networking/data/datasources/hive_helper.dart';
 import 'package:networking/data/models/subscription_model.dart';
 
@@ -77,15 +77,22 @@ class SubscriptionService {
     final deviceInfo = DeviceInfoPlugin();
 
     try {
-      if (!kIsWeb && Platform.isAndroid) {
+      if (kIsWeb) {
+        final webInfo = await deviceInfo.webBrowserInfo;
+        detectedId =
+            'WEB_${webInfo.browserName.name}_${webInfo.platform ?? 'browser'}_${DateTime.now().millisecondsSinceEpoch}';
+      } else if (PlatformEnv.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         detectedId = androidInfo.id;
         if (detectedId.isEmpty) {
-          detectedId = '${androidInfo.manufacturer}_${androidInfo.model}_${androidInfo.device}';
+          detectedId =
+              '${androidInfo.manufacturer}_${androidInfo.model}_${androidInfo.device}';
         }
-      } else if (!kIsWeb && Platform.isWindows) {
+      } else if (PlatformEnv.isWindows) {
         final windowsInfo = await deviceInfo.windowsInfo;
-        detectedId = windowsInfo.deviceId.replaceAll('{', '').replaceAll('}', '');
+        detectedId = windowsInfo.deviceId
+            .replaceAll('{', '')
+            .replaceAll('}', '');
       } else {
         detectedId = 'DEV_${DateTime.now().millisecondsSinceEpoch}';
       }
@@ -115,19 +122,20 @@ class SubscriptionService {
       }
     } catch (_) {}
 
-    try {
-      final result = await InternetAddress.lookup('main.terhabb.com')
-          .timeout(const Duration(seconds: 4));
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } catch (_) {
-      try {
-        final result = await InternetAddress.lookup('google.com')
-            .timeout(const Duration(seconds: 3));
-        return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      } catch (_) {
-        return false;
-      }
+    if (kIsWeb) {
+      return false;
     }
+
+    if (await PlatformEnv.lookupHost(
+      'main.terhabb.com',
+      timeout: const Duration(seconds: 4),
+    )) {
+      return true;
+    }
+    return await PlatformEnv.lookupHost(
+      'google.com',
+      timeout: const Duration(seconds: 3),
+    );
   }
 
   /// فحص حالة الاشتراك من سيرفر Frappe
