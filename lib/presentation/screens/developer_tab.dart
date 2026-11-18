@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:networking/core/constants/app_colors.dart';
@@ -20,6 +21,9 @@ class _DeveloperTabState extends State<DeveloperTab>
   late Animation<double> _card1Fade;
   late Animation<double> _card2Fade;
   late Animation<double> _card3Fade;
+
+  /// 0: QR الشامل لكل البيانات | 1: تيليجرام (@AYMSIF) | 2: فيسبوك | 3: واتساب
+  int _selectedQrIndex = 0;
 
   @override
   void initState() {
@@ -65,8 +69,13 @@ class _DeveloperTabState extends State<DeveloperTab>
     super.dispose();
   }
 
-  Future<void> _openWhatsApp(BuildContext context) async {
-    final uri = Uri.parse(AppStrings.devWhatsappUrl);
+  Future<void> _openExternalUrl(
+    BuildContext context,
+    String urlString, {
+    required String fallbackCopyText,
+    required String platformName,
+  }) async {
+    final uri = Uri.parse(urlString);
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -75,20 +84,309 @@ class _DeveloperTabState extends State<DeveloperTab>
       }
     } catch (_) {
       if (!context.mounted) return;
+      Clipboard.setData(ClipboardData(text: fallbackCopyText));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'تعذر فتح تطبيق واتساب تلقائياً، تم نسخ الرقم إلى الحافظة.',
-            style: TextStyle(fontFamily: 'Cairo'),
+            'تعذر فتح $platformName تلقائياً، تم نسخ ($fallbackCopyText) إلى الحافظة 📋',
+            style: const TextStyle(fontFamily: 'Cairo'),
           ),
         ),
       );
-      Clipboard.setData(const ClipboardData(text: AppStrings.devPhone));
     }
+  }
+
+  void _copyText(BuildContext context, String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'تم نسخ $label إلى الحافظة 📋',
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showQrZoomDialog(BuildContext context, {required int qrIndex}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.qr_code_2_rounded,
+                    color: AppColors.primary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getQrTitle(qrIndex),
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Divider(height: 18),
+              const SizedBox(height: 6),
+              _buildQrVisualWidget(qrIndex, size: 250),
+              const SizedBox(height: 14),
+              Text(
+                _getQrSubtitle(qrIndex),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text(
+                    'إغلاق المعاينة',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getQrTitle(int index) {
+    switch (index) {
+      case 1:
+        return 'رمز QR تيليجرام الرسمي (@AYMSIF)';
+      case 2:
+        return 'رمز QR حساب فيسبوك الرسمي';
+      case 3:
+        return 'رمز QR المحادثة المباشرة عبر واتساب';
+      case 0:
+      default:
+        return 'رمز QR الشامل لبيانات المطور (All-in-One)';
+    }
+  }
+
+  String _getQrSubtitle(int index) {
+    switch (index) {
+      case 1:
+        return 'امسح الرمز عبر كاميرا الهاتف أو تطبيق تيليجرام للوصول المباشر إلى @Aymsif';
+      case 2:
+        return 'امسح الرمز لفتح صفحة المطور على فيسبوك: facebook.com/aymansifq';
+      case 3:
+        return 'امسح الرمز لبدء محادثة واتساب مباشرة مع المهندس أيمن المقطري';
+      case 0:
+      default:
+        return 'يحتوي على البطاقة الرقمية الكاملة: الاسم، الهاتف، واتساب، تيليجرام (@Aymsif)، وفيسبوك';
+    }
+  }
+
+  Widget _buildQrVisualWidget(int index, {double size = 215}) {
+    if (index == 1) {
+      // عرض صورة الـ QR الرسمية الخاصة بتيليجرام @AYMSIF المرفقة من المستخدم
+      return Container(
+        width: size + 24,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0088CC).withValues(alpha: 0.28),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/images/telegram_qr.jpg',
+            width: size,
+            height: size + 25,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => _buildGeneratedQrCard(
+              data: AppStrings.devTelegramUrl,
+              badgeText: '@AYMSIF',
+              accentColor: const Color(0xFF0088CC),
+              icon: Icons.send_rounded,
+              size: size,
+            ),
+          ),
+        ),
+      );
+    }
+
+    switch (index) {
+      case 2:
+        return _buildGeneratedQrCard(
+          data: AppStrings.devFacebookUrl,
+          badgeText: 'facebook.com/aymansifq',
+          accentColor: const Color(0xFF1877F2),
+          icon: Icons.facebook_rounded,
+          size: size,
+        );
+      case 3:
+        return _buildGeneratedQrCard(
+          data: AppStrings.devWhatsappUrl,
+          badgeText: AppStrings.devPhone,
+          accentColor: const Color(0xFF25D366),
+          icon: Icons.chat_rounded,
+          size: size,
+        );
+      case 0:
+      default:
+        return _buildGeneratedQrCard(
+          data: AppStrings.devQrData,
+          badgeText: 'ENG. AYMAN SAIF • @AYMSIF',
+          accentColor: const Color(0xFF0A224E),
+          icon: Icons.verified_user_rounded,
+          size: size,
+        );
+    }
+  }
+
+  Widget _buildGeneratedQrCard({
+    required String data,
+    required String badgeText,
+    required Color accentColor,
+    required IconData icon,
+    required double size,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.25),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              QrImageView(
+                data: data,
+                version: QrVersions.auto,
+                size: size,
+                backgroundColor: Colors.white,
+                errorCorrectionLevel: QrErrorCorrectLevel.M,
+                eyeStyle: QrEyeStyle(
+                  eyeShape: QrEyeShape.circle,
+                  color: accentColor,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.circle,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              badgeText,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+                color: accentColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
       child: Center(
@@ -97,7 +395,7 @@ class _DeveloperTabState extends State<DeveloperTab>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. بطاقة الهيدر المتحركة (Hero & Fade/Slide Animation)
+              // 1. بطاقة الهيدر المتحركة للمطور
               FadeTransition(
                 opacity: _headerFade,
                 child: SlideTransition(
@@ -197,30 +495,103 @@ class _DeveloperTabState extends State<DeveloperTab>
                         ),
                         const SizedBox(height: 18),
 
-                        // زر التواصل المباشر عبر واتساب
-                        ElevatedButton.icon(
-                          onPressed: () => _openWhatsApp(context),
-                          icon: const Icon(Icons.chat_rounded, size: 22),
-                          label: const Text(
-                            'التواصل مع المطور عبر واتساب',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                        // أزرار الوصول السريع لحسابات التواصل الاجتماعي
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _openExternalUrl(
+                                context,
+                                AppStrings.devWhatsappUrl,
+                                fallbackCopyText: AppStrings.devPhone,
+                                platformName: 'واتساب',
+                              ),
+                              icon: const Icon(Icons.chat_rounded, size: 19),
+                              label: const Text(
+                                'واتساب',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366),
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF25D366),
-                            foregroundColor: Colors.white,
-                            elevation: 4,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
+                            ElevatedButton.icon(
+                              onPressed: () => _openExternalUrl(
+                                context,
+                                AppStrings.devTelegramUrl,
+                                fallbackCopyText: AppStrings.devTelegramHandle,
+                                platformName: 'تيليجرام',
+                              ),
+                              icon: const Icon(Icons.send_rounded, size: 18),
+                              label: const Text(
+                                'تيليجرام @Aymsif',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0088CC),
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+                            ElevatedButton.icon(
+                              onPressed: () => _openExternalUrl(
+                                context,
+                                AppStrings.devFacebookUrl,
+                                fallbackCopyText: AppStrings.devFacebookUrl,
+                                platformName: 'فيسبوك',
+                              ),
+                              icon: const Icon(
+                                Icons.facebook_rounded,
+                                size: 20,
+                              ),
+                              label: const Text(
+                                'فيسبوك',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1877F2),
+                                foregroundColor: Colors.white,
+                                elevation: 3,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -229,7 +600,7 @@ class _DeveloperTabState extends State<DeveloperTab>
               ),
               const SizedBox(height: 16),
 
-              // 2. بطاقة بيانات التواصل المباشر
+              // 2. بطاقة قنوات وروابط التواصل الاجتماعي الرسمية
               FadeTransition(
                 opacity: _card1Fade,
                 child: Card(
@@ -245,13 +616,13 @@ class _DeveloperTabState extends State<DeveloperTab>
                         const Row(
                           children: [
                             Icon(
-                              Icons.contact_phone_rounded,
+                              Icons.share_rounded,
                               color: AppColors.primary,
                               size: 20,
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'قنوات التواصل الرسمية',
+                              'روابط التواصل الاجتماعي والقنوات الرسمية',
                               style: TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 14,
@@ -262,65 +633,79 @@ class _DeveloperTabState extends State<DeveloperTab>
                           ],
                         ),
                         const Divider(height: 20),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                const Color(0xFF25D366).withValues(alpha: 0.15),
-                            child: const Icon(
-                              Icons.phone_android_rounded,
-                              color: Color(0xFF25D366),
-                            ),
-                          ),
-                          title: const Text(
-                            'رقم الهاتف والواتساب المباشر',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: const Text(
+
+                        // 1) الهاتف والواتساب
+                        _buildSocialTile(
+                          context: context,
+                          icon: Icons.phone_android_rounded,
+                          color: const Color(0xFF25D366),
+                          title: 'رقم الهاتف والواتساب المباشر',
+                          subtitle: AppStrings.devPhone,
+                          onCopy: () => _copyText(
+                            context,
                             AppStrings.devPhone,
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 13,
-                              letterSpacing: 1.1,
-                            ),
+                            'رقم الهاتف',
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'نسخ الرقم',
-                                icon: const Icon(Icons.copy_rounded, size: 20),
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    const ClipboardData(
-                                      text: AppStrings.devPhone,
-                                    ),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'تم نسخ رقم المطور إلى الحافظة 📋',
-                                        style: TextStyle(fontFamily: 'Cairo'),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                tooltip: 'مراسلة واتساب',
-                                icon: const Icon(
-                                  Icons.open_in_new_rounded,
-                                  color: Color(0xFF25D366),
-                                  size: 20,
-                                ),
-                                onPressed: () => _openWhatsApp(context),
-                              ),
-                            ],
+                          onOpen: () => _openExternalUrl(
+                            context,
+                            AppStrings.devWhatsappUrl,
+                            fallbackCopyText: AppStrings.devPhone,
+                            platformName: 'واتساب',
                           ),
+                          onShowQr: () {
+                            setState(() => _selectedQrIndex = 3);
+                            _showQrZoomDialog(context, qrIndex: 3);
+                          },
+                        ),
+                        const Divider(height: 12),
+
+                        // 2) تيليجرام
+                        _buildSocialTile(
+                          context: context,
+                          icon: Icons.send_rounded,
+                          color: const Color(0xFF0088CC),
+                          title: 'حساب التيليجرام الرسمي (Telegram)',
+                          subtitle: '${AppStrings.devTelegramHandle}  •  t.me/Aymsif',
+                          onCopy: () => _copyText(
+                            context,
+                            AppStrings.devTelegramHandle,
+                            'معرف تيليجرام @Aymsif',
+                          ),
+                          onOpen: () => _openExternalUrl(
+                            context,
+                            AppStrings.devTelegramUrl,
+                            fallbackCopyText: AppStrings.devTelegramHandle,
+                            platformName: 'تيليجرام',
+                          ),
+                          onShowQr: () {
+                            setState(() => _selectedQrIndex = 1);
+                            _showQrZoomDialog(context, qrIndex: 1);
+                          },
+                        ),
+                        const Divider(height: 12),
+
+                        // 3) فيسبوك
+                        _buildSocialTile(
+                          context: context,
+                          icon: Icons.facebook_rounded,
+                          color: const Color(0xFF1877F2),
+                          title: 'صفحة الفيسبوك الرسمية (Facebook)',
+                          subtitle: AppStrings.devFacebookUrl,
+                          onCopy: () => _copyText(
+                            context,
+                            AppStrings.devFacebookUrl,
+                            'رابط فيسبوك',
+                          ),
+                          onOpen: () => _openExternalUrl(
+                            context,
+                            AppStrings.devFacebookUrl,
+                            fallbackCopyText: AppStrings.devFacebookUrl,
+                            platformName: 'فيسبوك',
+                          ),
+                          onShowQr: () {
+                            setState(() => _selectedQrIndex = 2);
+                            _showQrZoomDialog(context, qrIndex: 2);
+                          },
                         ),
                       ],
                     ),
@@ -329,61 +714,214 @@ class _DeveloperTabState extends State<DeveloperTab>
               ),
               const SizedBox(height: 14),
 
-              // 3. بطاقة تفاصيل ومميزات التطبيق الهندسية
+              // 3. بطاقة الهوية الرقمية ورموز المسح السريع (QR Code Hub)
               FadeTransition(
                 opacity: _card2Fade,
                 child: Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
-                              Icons.verified_user_rounded,
+                            const Icon(
+                              Icons.qr_code_scanner_rounded,
                               color: AppColors.primary,
-                              size: 20,
+                              size: 21,
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              'حول التطبيق والمعمارية الهندسية',
-                              style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'بطاقة المسح السريع الذكية (QR Code)',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _showQrZoomDialog(
+                                context,
+                                qrIndex: _selectedQrIndex,
+                              ),
+                              icon: const Icon(Icons.zoom_in_rounded, size: 18),
+                              label: const Text(
+                                'تكبير',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const Divider(height: 20),
-                        _buildFeatureRow(
-                          Icons.memory_rounded,
-                          'آلة حالات متسلسلة صارمة (Deterministic State Machine)',
-                          'تنفيذ العمليات بتسلسل منطقي محكم يمنع التداخل ويضمن التحقق من الشبكة وشجرة DOM الحية.',
+                        const Divider(height: 16),
+
+                        // أزرار اختيار نوع الـ QR
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildQrChoiceChip(
+                                index: 0,
+                                label: 'البطاقة الشاملة (كل البيانات)',
+                                icon: Icons.badge_rounded,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              _buildQrChoiceChip(
+                                index: 1,
+                                label: 'تيليجرام @AYMSIF',
+                                icon: Icons.send_rounded,
+                                color: const Color(0xFF0088CC),
+                              ),
+                              const SizedBox(width: 6),
+                              _buildQrChoiceChip(
+                                index: 2,
+                                label: 'فيسبوك',
+                                icon: Icons.facebook_rounded,
+                                color: const Color(0xFF1877F2),
+                              ),
+                              const SizedBox(width: 6),
+                              _buildQrChoiceChip(
+                                index: 3,
+                                label: 'واتساب',
+                                icon: Icons.chat_rounded,
+                                color: const Color(0xFF25D366),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        _buildFeatureRow(
-                          Icons.javascript_rounded,
-                          'ديناميكية كاملة مع بوابات الدخول (Captive Portals)',
-                          'دعم حقن دوال saleem() و saveUsername() والتبديل المرن بين نافذة Popup أو زر Submit المباشر.',
+                        const SizedBox(height: 16),
+
+                        // عرض الـ QR المختار مع إمكانية النقر للتكبير
+                        GestureDetector(
+                          onTap: () => _showQrZoomDialog(
+                            context,
+                            qrIndex: _selectedQrIndex,
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            child: KeyedSubtree(
+                              key: ValueKey<int>(_selectedQrIndex),
+                              child: _buildQrVisualWidget(
+                                _selectedQrIndex,
+                                size: 205,
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        _buildFeatureRow(
-                          Icons.notifications_active_rounded,
-                          'خدمة خلفية مستمرة وإشعارات حية (Foreground Service)',
-                          'استمرار الفحص في الخلفية مع معاينة حية وتنبيهات صوتية مخصصة عالية الوضوح.',
+                        const SizedBox(height: 12),
+
+                        Text(
+                          _getQrSubtitle(_selectedQrIndex),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11.5,
+                            color: isDark
+                                ? Colors.grey.shade300
+                                : Colors.grey.shade700,
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        _buildFeatureRow(
-                          Icons.wifi_protected_setup_rounded,
-                          'مراقبة تغير الشبكة الذكية (BroadcastReceiver)',
-                          'رصد فوري لتغير الـ SSID أثناء الفحص أو فك الحظر مع تنبيه المستخدم وحفظ الحالة.',
+                        const SizedBox(height: 14),
+
+                        // ملخص البيانات المضمنة داخل الـ QR الشامل
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.04)
+                                : AppColors.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Expanded(
+                                    child: Text(
+                                      'البيانات المضمنة في البطاقة الرقمية:',
+                                      style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  InkWell(
+                                    onTap: () => _copyText(
+                                      context,
+                                      'المهندس أيمن محمد سيف المقطري\n'
+                                      'هاتف/واتساب: ${AppStrings.devPhone}\n'
+                                      'تيليجرام: ${AppStrings.devTelegramHandle} (${AppStrings.devTelegramUrl})\n'
+                                      'فيسبوك: ${AppStrings.devFacebookUrl}',
+                                      'كافة بيانات التواصل',
+                                    ),
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.copy_all_rounded,
+                                            size: 15,
+                                            color: AppColors.accent,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'نسخ الكل',
+                                            style: TextStyle(
+                                              fontFamily: 'Cairo',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.accent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                '• الاسم: المهندس أيمن محمد سيف المقطري\n'
+                                '• الهاتف والواتساب: 00967777609160\n'
+                                '• تيليجرام: @Aymsif (https://t.me/Aymsif)\n'
+                                '• فيسبوك: https://www.facebook.com/aymansifq/',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 11,
+                                  height: 1.55,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -404,7 +942,7 @@ class _DeveloperTabState extends State<DeveloperTab>
                   child: const Column(
                     children: [
                       Text(
-                        'Network Voucher Hunter & Auto-Unban • v2.0.0 Pro',
+                        'Network Voucher Hunter & Auto-Unban • v1.1.0 Pro',
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 12,
@@ -433,44 +971,92 @@ class _DeveloperTabState extends State<DeveloperTab>
     );
   }
 
-  Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: AppColors.primary),
+  Widget _buildSocialTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onCopy,
+    required VoidCallback onOpen,
+    required VoidCallback onShowQr,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: color.withValues(alpha: 0.14),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12,
         ),
-      ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'عرض رمز QR',
+            icon: Icon(Icons.qr_code_rounded, size: 20, color: color),
+            onPressed: onShowQr,
+          ),
+          IconButton(
+            tooltip: 'نسخ',
+            icon: const Icon(Icons.copy_rounded, size: 19),
+            onPressed: onCopy,
+          ),
+          IconButton(
+            tooltip: 'فتح الرابط المباشر',
+            icon: Icon(Icons.open_in_new_rounded, color: color, size: 20),
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrChoiceChip({
+    required int index,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _selectedQrIndex == index;
+    return ChoiceChip(
+      selected: isSelected,
+      selectedColor: color.withValues(alpha: 0.18),
+      avatar: Icon(
+        icon,
+        size: 16,
+        color: isSelected ? color : Colors.grey,
+      ),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11.5,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? color : null,
+        ),
+      ),
+      side: BorderSide(
+        color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),
+      ),
+      onSelected: (_) {
+        setState(() => _selectedQrIndex = index);
+      },
     );
   }
 }

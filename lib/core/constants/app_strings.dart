@@ -5,6 +5,20 @@ class AppStrings {
   static const String devName = 'المهندس أيمن محمد سيف المقطري';
   static const String devPhone = '00967777609160';
   static const String devWhatsappUrl = 'https://wa.me/967777609160';
+  static const String devTelegramHandle = '@Aymsif';
+  static const String devTelegramUrl = 'https://t.me/Aymsif';
+  static const String devFacebookUrl = 'https://www.facebook.com/aymansifq/';
+  static const String devQrData =
+      'BEGIN:VCARD\n'
+      'VERSION:3.0\n'
+      'FN:المهندس أيمن محمد سيف المقطري (Ayman Saif)\n'
+      'TITLE:Full-Stack & Flutter Architect\n'
+      'TEL;TYPE=CELL:+967777609160\n'
+      'URL;TYPE=Telegram:https://t.me/Aymsif\n'
+      'URL;TYPE=Facebook:https://www.facebook.com/aymansifq/\n'
+      'URL;TYPE=WhatsApp:https://wa.me/967777609160\n'
+      'NOTE:Telegram: @Aymsif | Facebook: fb.com/aymansifq | WhatsApp: +967777609160\n'
+      'END:VCARD';
 
   // Tabs
   static const String tabDashboard = 'لوحة التحكم';
