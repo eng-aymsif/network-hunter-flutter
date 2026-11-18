@@ -41,6 +41,36 @@ if (-not $vcInstalled) {
 }
 
 Write-Host ""
+Write-Host "[*] Ensuring Windows C++ dependencies & offline WIL package are staged..." -ForegroundColor Cyan
+$wilSource = Join-Path $PSScriptRoot "windows\packages\Microsoft.Windows.ImplementationLibrary"
+$wilTarget = Join-Path $PSScriptRoot "build\windows\x64\packages\Microsoft.Windows.ImplementationLibrary"
+if (Test-Path $wilSource) {
+    if (-not (Test-Path $wilTarget)) {
+        New-Item -ItemType Directory -Path $wilTarget -Force | Out-Null
+    }
+    Copy-Item -Path "$wilSource\*" -Destination $wilTarget -Recurse -Force
+    Write-Host "[OK] Staged Microsoft.Windows.ImplementationLibrary from local repository cache." -ForegroundColor Green
+}
+
+# Auto-patch audioplayers_windows CMakeLists.txt in pub-cache if needed
+$audioCMake = "$env:PUB_CACHE\hosted\pub.dev\audioplayers_windows-4.4.1\windows\CMakeLists.txt"
+if (Test-Path $audioCMake) {
+    $cContent = [System.IO.File]::ReadAllText($audioCMake)
+    if ($cContent -notmatch "if \(NOT EXISTS `"\$\{CMAKE_BINARY_DIR\}/packages/Microsoft.Windows.ImplementationLibrary") {
+        $cContent = $cContent.Replace(
+            "execute_process(COMMAND`r`n    `${NUGET} install Microsoft.Windows.ImplementationLibrary",
+            "if (NOT EXISTS `"`${CMAKE_BINARY_DIR}/packages/Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets`")`r`nexecute_process(COMMAND`r`n    `${NUGET} install Microsoft.Windows.ImplementationLibrary"
+        )
+        $cContent = $cContent.Replace(
+            "message(FATAL_ERROR `"Failed to install nuget package Microsoft.Windows.ImplementationLibrary.`${WIL_VERSION}`")`r`nendif()",
+            "message(FATAL_ERROR `"Failed to install nuget package Microsoft.Windows.ImplementationLibrary.`${WIL_VERSION}`")`r`nendif()`r`nendif()"
+        )
+        [System.IO.File]::WriteAllText($audioCMake, $cContent)
+        Write-Host "[OK] Patched audioplayers_windows to bypass remote NuGet calls when package is present." -ForegroundColor Green
+    }
+}
+
+Write-Host ""
 Write-Host "[*] Building Network Hunter Pro for Windows Desktop (flutter build windows --release)..." -ForegroundColor Cyan
 Set-Location $PSScriptRoot
 & flutter config --enable-windows-desktop
