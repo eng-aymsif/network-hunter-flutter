@@ -38,13 +38,15 @@ class SettingsModelAdapter extends TypeAdapter<SettingsModel> {
       usePopupSubmit: fields[18] as bool? ?? true,
       resumeSaved: fields[19] as bool? ?? true,
       skipAlreadyTested: fields[20] as bool? ?? false,
+      autoLoginWithHuntedCards: fields[21] as bool? ?? false,
+      autoLoginCheckInterval: fields[22] as int? ?? 15,
     );
   }
 
   @override
   void write(BinaryWriter writer, SettingsModel obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.url)
       ..writeByte(1)
@@ -86,7 +88,11 @@ class SettingsModelAdapter extends TypeAdapter<SettingsModel> {
       ..writeByte(19)
       ..write(obj.resumeSaved)
       ..writeByte(20)
-      ..write(obj.skipAlreadyTested);
+      ..write(obj.skipAlreadyTested)
+      ..writeByte(21)
+      ..write(obj.autoLoginWithHuntedCards)
+      ..writeByte(22)
+      ..write(obj.autoLoginCheckInterval);
   }
 
   @override

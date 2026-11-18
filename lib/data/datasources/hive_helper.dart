@@ -104,12 +104,19 @@ class HiveHelper implements HunterDatabase {
 
     try {
       final now = DateTime.now().toIso8601String().replaceAll('T', ' ').split('.').first;
+      int maxPriority = 0;
+      for (final existing in _foundCardsBox.values) {
+        if (existing.priorityOrder > maxPriority) {
+          maxPriority = existing.priorityOrder;
+        }
+      }
       final card = CardModel(
         cardNumber: cardNumber,
         loginUrl: loginUrl,
         foundAt: now,
         isUsed: false,
         notes: notes,
+        priorityOrder: _foundCardsBox.isEmpty ? 1 : maxPriority + 1,
       );
 
       // box.add() لإدراج الكرت وتوليد مفتاح رقمي تلقائي
@@ -154,6 +161,18 @@ class HiveHelper implements HunterDatabase {
     final card = _foundCardsBox.get(cardId);
     if (card != null) {
       await _foundCardsBox.put(cardId, card.copyWith(notes: notes));
+    }
+  }
+
+  /// تحديث ترتيب أولوية الكروت في رتل الاتصال التلقائي
+  Future<void> updateCardsPriorityOrder(List<int> orderedCardIds) async {
+    await _ensureInitialized();
+    for (int i = 0; i < orderedCardIds.length; i++) {
+      final cardId = orderedCardIds[i];
+      final card = _foundCardsBox.get(cardId);
+      if (card != null) {
+        await _foundCardsBox.put(cardId, card.copyWith(priorityOrder: i + 1));
+      }
     }
   }
 

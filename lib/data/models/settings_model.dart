@@ -67,6 +67,12 @@ class SettingsModel {
   @HiveField(20)
   final bool skipAlreadyTested;
 
+  @HiveField(21)
+  final bool autoLoginWithHuntedCards;
+
+  @HiveField(22)
+  final int autoLoginCheckInterval;
+
   SettingsModel({
     this.url = 'http://a.com',
     this.loginPath = '/login',
@@ -89,6 +95,8 @@ class SettingsModel {
     this.injectSaveUsername = true,
     this.usePopupSubmit = true,
     this.skipAlreadyTested = false,
+    this.autoLoginWithHuntedCards = false,
+    this.autoLoginCheckInterval = 15,
   });
 
   SettingsModel copyWith({
@@ -113,6 +121,8 @@ class SettingsModel {
     bool? injectSaveUsername,
     bool? usePopupSubmit,
     bool? skipAlreadyTested,
+    bool? autoLoginWithHuntedCards,
+    int? autoLoginCheckInterval,
   }) {
     return SettingsModel(
       url: url ?? this.url,
@@ -136,6 +146,10 @@ class SettingsModel {
       injectSaveUsername: injectSaveUsername ?? this.injectSaveUsername,
       usePopupSubmit: usePopupSubmit ?? this.usePopupSubmit,
       skipAlreadyTested: skipAlreadyTested ?? this.skipAlreadyTested,
+      autoLoginWithHuntedCards:
+          autoLoginWithHuntedCards ?? this.autoLoginWithHuntedCards,
+      autoLoginCheckInterval:
+          autoLoginCheckInterval ?? this.autoLoginCheckInterval,
     );
   }
 
@@ -162,6 +176,8 @@ class SettingsModel {
       'INJECT_SAVE_USERNAME': injectSaveUsername ? '1' : '0',
       'USE_POPUP_SUBMIT': usePopupSubmit ? '1' : '0',
       'SKIP_ALREADY_TESTED': skipAlreadyTested ? '1' : '0',
+      'AUTO_LOGIN_WITH_HUNTED_CARDS': autoLoginWithHuntedCards ? '1' : '0',
+      'AUTO_LOGIN_CHECK_INTERVAL': autoLoginCheckInterval.toString(),
     };
   }
 
@@ -207,6 +223,10 @@ class SettingsModel {
       injectSaveUsername: parseBool(map['INJECT_SAVE_USERNAME'], true),
       usePopupSubmit: parseBool(map['USE_POPUP_SUBMIT'], true),
       skipAlreadyTested: parseBool(map['SKIP_ALREADY_TESTED'], false),
+      autoLoginWithHuntedCards:
+          parseBool(map['AUTO_LOGIN_WITH_HUNTED_CARDS'], false),
+      autoLoginCheckInterval:
+          parseInt(map['AUTO_LOGIN_CHECK_INTERVAL'], 15),
     );
   }
 }

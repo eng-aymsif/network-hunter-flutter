@@ -28,6 +28,9 @@ class DatabaseHelper implements HunterDatabase {
   Future<void> updateCardNotes(int cardId, String notes) =>
       _hive.updateCardNotes(cardId, notes);
 
+  Future<void> updateCardsPriorityOrder(List<int> orderedCardIds) =>
+      _hive.updateCardsPriorityOrder(orderedCardIds);
+
   Future<void> deleteCard(int cardId) => _hive.deleteCard(cardId);
 
   Future<void> clearAllCards() => _hive.clearAllCards();

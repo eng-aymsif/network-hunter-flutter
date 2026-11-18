@@ -4,6 +4,8 @@ import 'package:networking/core/constants/app_colors.dart';
 import 'package:networking/data/models/card_model.dart';
 import 'package:networking/data/models/tested_card_model.dart';
 import 'package:networking/presentation/providers/cards_provider.dart';
+import 'package:networking/presentation/providers/engine_provider.dart';
+import 'package:networking/presentation/providers/logs_provider.dart';
 import 'package:networking/presentation/providers/settings_provider.dart';
 
 class CardsTab extends StatefulWidget {
@@ -27,12 +29,13 @@ class _CardsTabState extends State<CardsTab> {
   Widget build(BuildContext context) {
     final cardsProv = context.watch<CardsProvider>();
     final settingsProv = context.watch<SettingsProvider>();
+    final engineProv = context.watch<EngineProvider>();
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
-          // شريط التبويب العلوي الأنيق (الكروت المصطادة vs سجل الكروت المختبرة)
+          // شريط التبويب العلوي الأنيق (الكروت المصطادة | رتل الاتصال التلقائي | سجل الكروت المختبرة)
           Container(
             color: Theme.of(context).cardColor,
             child: TabBar(
@@ -40,25 +43,26 @@ class _CardsTabState extends State<CardsTab> {
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppColors.primary,
               indicatorWeight: 3,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 6),
               labelStyle: const TextStyle(
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
+                fontSize: 12,
               ),
               unselectedLabelStyle: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 13,
+                fontSize: 11.5,
               ),
               tabs: [
                 Tab(
-                  icon: const Icon(Icons.card_membership_rounded),
+                  icon: const Icon(Icons.card_membership_rounded, size: 20),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('الكروت المصطادة'),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -72,7 +76,7 @@ class _CardsTabState extends State<CardsTab> {
                             '${cardsProv.totalCount}',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
                             ),
@@ -83,14 +87,46 @@ class _CardsTabState extends State<CardsTab> {
                   ),
                 ),
                 Tab(
-                  icon: const Icon(Icons.fact_check_outlined),
+                  icon: const Icon(Icons.autorenew_rounded, size: 20),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('رتل الاتصال التلقائي'),
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${cardsProv.unusedCount}',
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Tab(
+                  icon: const Icon(Icons.fact_check_outlined, size: 20),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('سجل الكروت المختبرة'),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -104,7 +140,7 @@ class _CardsTabState extends State<CardsTab> {
                             '${cardsProv.totalTestedCount}',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                               color: AppColors.accent,
                             ),
@@ -119,14 +155,22 @@ class _CardsTabState extends State<CardsTab> {
           ),
           const Divider(height: 1),
 
-          // محتوى التبويبين
+          // محتوى التبويبات الثلاثة
           Expanded(
             child: TabBarView(
               children: [
                 // التبويب 1: الكروت المصطادة
                 _buildHuntedCardsView(context, cardsProv, settingsProv),
 
-                // التبويب 2: سجل الكروت المختبرة (DataTable)
+                // التبويب 2: رتل الاتصال التلقائي (ترتيب الكروت غير المستخدمة)
+                _buildAutoLoginQueueView(
+                  context,
+                  cardsProv,
+                  settingsProv,
+                  engineProv,
+                ),
+
+                // التبويب 3: سجل الكروت المختبرة (DataTable)
                 _buildTestedCardsView(context, cardsProv),
               ],
             ),
@@ -1250,6 +1294,446 @@ class _CardsTabState extends State<CardsTab> {
           ),
         ],
       ),
+    );
+  }
+
+  // ===========================================================================
+  // التبويب الثاني: رتل الاتصال التلقائي (إدارة وترتيب أولوية الكروت غير المستخدمة)
+  // ===========================================================================
+  Widget _buildAutoLoginQueueView(
+    BuildContext context,
+    CardsProvider cardsProv,
+    SettingsProvider settingsProv,
+    EngineProvider engineProv,
+  ) {
+    final queue = cardsProv.unusedQueue;
+    final isEnabled = settingsProv.settings.autoLoginWithHuntedCards;
+    final isHunting = engineProv.isRunning;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    String statusBannerText;
+    Color statusBannerColor;
+    IconData statusBannerIcon;
+
+    if (!isEnabled) {
+      statusBannerText =
+          'الاتصال التلقائي معطل حالياً — فعّله من المفتاح أدناه أو من تبويب الإعدادات';
+      statusBannerColor = Colors.grey;
+      statusBannerIcon = Icons.pause_circle_outline_rounded;
+    } else if (isHunting) {
+      statusBannerText =
+          'متوقف مؤقتاً لأن محرك الفحص والاصطياد قيد التشغيل حالياً';
+      statusBannerColor = AppColors.warning;
+      statusBannerIcon = Icons.shield_outlined;
+    } else if (queue.isEmpty) {
+      statusBannerText =
+          'لا توجد كروت مصطادة غير مستخدمة في الرتل حالياً';
+      statusBannerColor = AppColors.danger;
+      statusBannerIcon = Icons.info_outline_rounded;
+    } else {
+      statusBannerText =
+          'نشط ومستعد 🟢 — الكرت القادم للاتصال التلقائي (#1): ${queue.first.cardNumber}';
+      statusBannerColor = AppColors.success;
+      statusBannerIcon = Icons.bolt_rounded;
+    }
+
+    return Column(
+      children: [
+        // 1. بطاقة حالة وتحكم الاتصال التلقائي
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: statusBannerColor.withValues(alpha: 0.4),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: statusBannerColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      statusBannerIcon,
+                      color: statusBannerColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'الاتصال التلقائي عند انتهاء الرصيد أو الخروج',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          statusBannerText,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: statusBannerColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: isEnabled,
+                    activeThumbColor: AppColors.success,
+                    onChanged: (val) {
+                      final updated = settingsProv.settings.copyWith(
+                        autoLoginWithHuntedCards: val,
+                      );
+                      settingsProv.saveSettings(updated);
+                    },
+                  ),
+                ],
+              ),
+              if (cardsProv.isAutoLoggingIn ||
+                  cardsProv.autoLoginStatus.isNotEmpty) ...[
+                const Divider(height: 14),
+                Row(
+                  children: [
+                    if (cardsProv.isAutoLoggingIn) ...[
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: Text(
+                        cardsProv.autoLoginStatus,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11.5,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (queue.isNotEmpty && !isHunting) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'اسحب الكرت للأعلى أو الأسفل لترتيب الأولوية، أو اضغط على السهم لرفعه للمركز #1.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.wifi_rounded, size: 15),
+                      label: const Text(
+                        'اتصال بالرتل الآن',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                      onPressed: cardsProv.isAutoLoggingIn
+                          ? null
+                          : () async {
+                              final logsProv = context.read<LogsProvider>();
+                              // تفعيل الإعداد مؤقتاً أو تمريره لتجربة الاتصال الفوري بالرتل
+                              final effectiveSettings = settingsProv.settings
+                                  .copyWith(autoLoginWithHuntedCards: true);
+                              final connectedNum = await cardsProv
+                                  .triggerAutoLoginIfNeeded(
+                                    config: effectiveSettings,
+                                    isEngineRunning: engineProv.isRunning,
+                                    forceAttempt: true,
+                                    onLog: (m) => logsProv.addLog(m),
+                                  );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    connectedNum != null
+                                        ? '🎉 تم الاتصال بنجاح عبر الكرت: $connectedNum وتحويله إلى مستخدم!'
+                                        : '❌ تعذر الاتصال بأي كرت في الرتل حالياً',
+                                    style: const TextStyle(fontFamily: 'Cairo'),
+                                  ),
+                                  backgroundColor: connectedNum != null
+                                      ? AppColors.success
+                                      : AppColors.danger,
+                                ),
+                              );
+                            },
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // 2. قائمة السحب والإفلات لترتيب الكروت غير المستخدمة
+        Expanded(
+          child: queue.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.playlist_add_check_circle_outlined,
+                        size: 58,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'رتل الاتصال التلقائي فارغ حالياً',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'الكروت المصطادة غير المستخدمة ستظهر هنا تلقائياً لترتيب أولوية الاتصال بها.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                  itemCount: queue.length,
+                  onReorderItem: (oldIndex, newIndex) {
+                    cardsProv.reorderUnusedCards(oldIndex, newIndex);
+                  },
+                  itemBuilder: (context, index) {
+                    final card = queue[index];
+                    final isFirst = index == 0;
+
+                    return Card(
+                      key: ValueKey('queue_card_${card.id ?? card.cardNumber}'),
+                      elevation: isFirst ? 2.5 : 1,
+                      margin: const EdgeInsets.symmetric(vertical: 5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isFirst
+                              ? AppColors.success.withValues(alpha: 0.65)
+                              : Colors.grey.withValues(alpha: 0.2),
+                          width: isFirst ? 1.6 : 1,
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        leading: Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isFirst
+                                ? AppColors.success
+                                : AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '#${index + 1}',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isFirst
+                                      ? Colors.white
+                                      : AppColors.primary,
+                                ),
+                              ),
+                              if (isFirst)
+                                const Text(
+                                  'القادم',
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 8.5,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                card.cardNumber,
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (isFirst)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.success.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'الأولوية الأولى ⭐',
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'تاريخ الاصطياد: ${card.foundAt}'
+                            '${card.notes.isNotEmpty ? ' • ${card.notes}' : ''}',
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isFirst && card.id != null)
+                              IconButton(
+                                tooltip: 'رفع للأولوية الأولى (#1)',
+                                icon: const Icon(
+                                  Icons.vertical_align_top_rounded,
+                                  color: AppColors.accent,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  cardsProv.moveCardToTopPriority(card.id!);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'تم رفع الكرت ${card.cardNumber} إلى الأولوية الأولى (#1) ⭐',
+                                        style: const TextStyle(
+                                          fontFamily: 'Cairo',
+                                        ),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            IconButton(
+                              tooltip: 'الاتصال بهذا الكرت فوراً',
+                              icon: const Icon(
+                                Icons.wifi_rounded,
+                                color: AppColors.success,
+                                size: 20,
+                              ),
+                              onPressed: () async {
+                                final ok =
+                                    await cardsProv.loginAndConnectWithCard(
+                                      card,
+                                      settingsProv.settings,
+                                      isAutoLogin: true,
+                                    );
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? '🎉 تم الاتصال بالكرت ${card.cardNumber} وتحويله إلى مستخدم!'
+                                          : '❌ تعذر الاتصال بالكرت ${card.cardNumber}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Cairo',
+                                      ),
+                                    ),
+                                    backgroundColor: ok
+                                        ? AppColors.success
+                                        : AppColors.danger,
+                                  ),
+                                );
+                              },
+                            ),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4),
+                                child: Icon(
+                                  Icons.drag_handle_rounded,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

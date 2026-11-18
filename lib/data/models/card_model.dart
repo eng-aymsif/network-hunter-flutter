@@ -22,6 +22,9 @@ class CardModel {
   @HiveField(5)
   final String notes;
 
+  @HiveField(6)
+  final int priorityOrder;
+
   CardModel({
     this.id,
     required this.cardNumber,
@@ -29,6 +32,7 @@ class CardModel {
     required this.foundAt,
     this.isUsed = false,
     this.notes = '',
+    this.priorityOrder = 0,
   });
 
   CardModel copyWith({
@@ -38,6 +42,7 @@ class CardModel {
     String? foundAt,
     bool? isUsed,
     String? notes,
+    int? priorityOrder,
   }) {
     return CardModel(
       id: id ?? this.id,
@@ -46,6 +51,7 @@ class CardModel {
       foundAt: foundAt ?? this.foundAt,
       isUsed: isUsed ?? this.isUsed,
       notes: notes ?? this.notes,
+      priorityOrder: priorityOrder ?? this.priorityOrder,
     );
   }
 
@@ -57,6 +63,7 @@ class CardModel {
       'found_at': foundAt,
       'is_used': isUsed ? 1 : 0,
       'notes': notes,
+      'priority_order': priorityOrder,
     };
   }
 
@@ -68,6 +75,7 @@ class CardModel {
       foundAt: map['found_at'] as String? ?? '',
       isUsed: (map['is_used'] as int? ?? 0) == 1,
       notes: map['notes'] as String? ?? '',
+      priorityOrder: (map['priority_order'] as num?)?.toInt() ?? 0,
     );
   }
 }

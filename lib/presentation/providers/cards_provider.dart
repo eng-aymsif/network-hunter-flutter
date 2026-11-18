@@ -23,10 +23,30 @@ class CardsProvider extends ChangeNotifier {
   bool _isLoadingTested = false;
   String _testedSearchQuery = '';
 
+  bool _isAutoLoggingIn = false;
+  String _autoLoginStatus = '';
+  String? _lastAutoConnectedCard;
+
   List<CardModel> get cards {
     if (_searchQuery.isEmpty) return _cards;
     return _cards.where((c) => c.cardNumber.contains(_searchQuery)).toList();
   }
+
+  /// رتل الكروت غير المستخدمة مرتبة تصاعدياً حسب أولوية الاتصال التلقائي
+  List<CardModel> get unusedQueue {
+    final list = _cards.where((c) => !c.isUsed).toList();
+    list.sort((a, b) {
+      final pa = a.priorityOrder <= 0 ? 999999 : a.priorityOrder;
+      final pb = b.priorityOrder <= 0 ? 999999 : b.priorityOrder;
+      if (pa != pb) return pa.compareTo(pb);
+      return (a.id ?? 0).compareTo(b.id ?? 0);
+    });
+    return list;
+  }
+
+  bool get isAutoLoggingIn => _isAutoLoggingIn;
+  String get autoLoginStatus => _autoLoginStatus;
+  String? get lastAutoConnectedCard => _lastAutoConnectedCard;
 
   List<TestedCardModel> get testedCards {
     if (_testedSearchQuery.isEmpty) return _testedCards;
@@ -180,6 +200,48 @@ class CardsProvider extends ChangeNotifier {
   Future<void> updateNotes(int cardId, String notes) async {
     await _db.updateCardNotes(cardId, notes);
     await loadCards();
+  }
+
+  /// إعادة ترتيب الكروت غير المستخدمة عبر السحب والإفلات وحفظ الأولوية في قاعدة البيانات
+  Future<void> reorderUnusedCards(int oldIndex, int newIndex) async {
+    final queue = unusedQueue;
+    if (oldIndex < 0 || oldIndex >= queue.length) return;
+    final targetIndex = newIndex.clamp(0, queue.length - 1);
+
+    final moved = queue.removeAt(oldIndex);
+    queue.insert(targetIndex, moved);
+
+    final orderedIds = <int>[];
+    for (int i = 0; i < queue.length; i++) {
+      final id = queue[i].id;
+      if (id != null) {
+        orderedIds.add(id);
+      }
+    }
+
+    // تحديث فوري في الذاكرة لمنع أي تأخير بصري أثناء السحب والإفلات
+    final priorityMap = <int, int>{};
+    for (int i = 0; i < orderedIds.length; i++) {
+      priorityMap[orderedIds[i]] = i + 1;
+    }
+    _cards = _cards.map((c) {
+      if (c.id != null && priorityMap.containsKey(c.id)) {
+        return c.copyWith(priorityOrder: priorityMap[c.id]);
+      }
+      return c;
+    }).toList();
+    notifyListeners();
+
+    await _db.updateCardsPriorityOrder(orderedIds);
+    await loadCards();
+  }
+
+  /// رفع كرت مباشرة إلى صدارة رتل الاتصال التلقائي (الأولوية #1)
+  Future<void> moveCardToTopPriority(int cardId) async {
+    final queue = unusedQueue;
+    final idx = queue.indexWhere((c) => c.id == cardId);
+    if (idx <= 0) return;
+    await reorderUnusedCards(idx, 0);
   }
 
   Future<void> deleteCard(int cardId) async {
@@ -542,12 +604,14 @@ class CardsProvider extends ChangeNotifier {
   /// الاتصال وتسجيل الدخول بالكرت الآن (وإبقاء الجلسة نشطة للتصفح)
   Future<bool> loginAndConnectWithCard(
     CardModel card,
-    SettingsModel config,
-  ) async {
+    SettingsModel config, {
+    bool isAutoLogin = false,
+    Dio? customDio,
+  }) async {
     final baseUrl = config.url.replaceAll(RegExp(r'/+$'), '');
     final loginUrl = '$baseUrl${config.loginPath}';
 
-    final dio = _createDio(config.navTimeout);
+    final dio = customDio ?? _createDio(config.navTimeout);
     final data = <String, dynamic>{
       config.usernameField: card.cardNumber,
     };
@@ -584,19 +648,178 @@ class CardsProvider extends ChangeNotifier {
       if (isSuccess) {
         if (card.id != null) {
           await _db.setCardUsedStatus(card.id!, true);
-          await _db.updateCardNotes(card.id!, 'متصل حالياً ✓');
+          await _db.updateCardNotes(
+            card.id!,
+            isAutoLogin ? 'تم الاتصال تلقائياً ✓' : 'متصل حالياً ✓',
+          );
         }
         await loadCards();
         return true;
       } else {
         if (card.id != null) {
-          await _db.updateCardNotes(card.id!, 'غير متاح ❌');
+          if (isAutoLogin) {
+            await _db.setCardUsedStatus(card.id!, true);
+            await _db.updateCardNotes(card.id!, 'منتهي/غير متاح (تخطي تلقائي) ❌');
+          } else {
+            await _db.updateCardNotes(card.id!, 'غير متاح ❌');
+          }
         }
         await loadCards();
         return false;
       }
     } catch (_) {
       return false;
+    }
+  }
+
+  /// فحص ما إذا كانت الشبكة الحالية تطلب تسجيل دخول (انتهاء الرصيد أو تسجيل الخروج)
+  Future<bool> checkPortalNeedsLogin(
+    SettingsModel config, {
+    Dio? customDio,
+    bool? nativeCaptiveOverride,
+  }) async {
+    // 1. التحقق من إشارة نظام أندرويد (Captive Portal / Sign in to network)
+    final isCaptive =
+        nativeCaptiveOverride ?? await NativeBridge.checkIsCaptivePortal();
+    if (isCaptive && customDio == null) {
+      return true;
+    }
+
+    // 2. فحص خفيف لصفحة البوابة للتأكد من حالة الجلسة
+    final baseUrl = config.url.replaceAll(RegExp(r'/+$'), '');
+    final statusUrl = '$baseUrl/status';
+    final loginUrl = '$baseUrl${config.loginPath}';
+    final dio = customDio ?? _createDio(6000);
+
+    try {
+      final res = await dio.get(
+        statusUrl,
+        options: Options(followRedirects: false),
+      );
+      final code = res.statusCode ?? 0;
+      final loc = (res.headers.value('location') ?? '').toLowerCase();
+      final body = res.data.toString();
+
+      // إذا أعادت البوابة التوجيه إلى صفحة login، فالجلسة منتهية وتحتاج تسجيل دخول
+      if (code == 301 || code == 302 || code == 303) {
+        if (loc.contains('login')) return true;
+      }
+      if (code == 200) {
+        if (_isSuccessBody(body)) {
+          return false; // متصل بالفعل وجلسة نشطة
+        }
+        final lower = body.toLowerCase();
+        if (lower.contains('name="${config.usernameField.toLowerCase()}"') ||
+            lower.contains("name='${config.usernameField.toLowerCase()}'") ||
+            lower.contains('login')) {
+          return true;
+        }
+      }
+    } catch (_) {
+      // محاولة فحص صفحة الدخول مباشرة
+      try {
+        final res = await dio.get(
+          loginUrl,
+          options: Options(followRedirects: false),
+        );
+        final code = res.statusCode ?? 0;
+        final loc = (res.headers.value('location') ?? '').toLowerCase();
+        final body = res.data.toString();
+        if (code == 301 || code == 302 || code == 303) {
+          if (loc.contains('status')) return false;
+        }
+        if (code == 200 && !_isSuccessBody(body)) {
+          return true;
+        }
+      } catch (_) {}
+    }
+
+    return isCaptive;
+  }
+
+  /// تنفيذ الاتصال التلقائي بالسحب المتسلسل من رتل الكروت المصطادة غير المستخدمة
+  /// يعمل فقط إذا:
+  /// 1. الميزة مفعلة في الإعدادات (config.autoLoginWithHuntedCards == true)
+  /// 2. محرك الفحص والاصطياد متوقف تماماً (!isEngineRunning)
+  /// 3. توجد كروت مصطادة غير مستخدمة (unusedQueue.isNotEmpty)
+  Future<String?> triggerAutoLoginIfNeeded({
+    required SettingsModel config,
+    required bool isEngineRunning,
+    bool forceAttempt = false,
+    Dio? customDio,
+    void Function(String logMsg)? onLog,
+  }) async {
+    // التحقق الصارم من الشروط الثلاثة
+    if (!config.autoLoginWithHuntedCards) return null;
+    if (isEngineRunning) return null;
+    final queue = unusedQueue;
+    if (queue.isEmpty) return null;
+    if (_isAutoLoggingIn) return null;
+
+    _isAutoLoggingIn = true;
+    notifyListeners();
+
+    try {
+      if (!forceAttempt) {
+        final needsLogin = await checkPortalNeedsLogin(
+          config,
+          customDio: customDio,
+        );
+        if (!needsLogin) {
+          return null;
+        }
+      }
+
+      onLog?.call(
+        '🔌 [الاتصال التلقائي]: تم رصد حاجة الشبكة لتسجيل الدخول — بدء السحب من رتل الكروت (${queue.length} كرت متاح)...',
+      );
+
+      for (int i = 0; i < queue.length; i++) {
+        // إذا بدأ المستخدم الفحص والاصطياد أثناء المحاولة، نتوقف فوراً
+        if (!config.autoLoginWithHuntedCards) break;
+
+        final card = queue[i];
+        _autoLoginStatus =
+            'جاري الاتصال التلقائي بالكرت #${i + 1}: ${card.cardNumber}...';
+        notifyListeners();
+
+        onLog?.call(
+          '  🔄 محاولة الاتصال التلقائي بالكرت #${i + 1}: ${card.cardNumber}...',
+        );
+
+        final connected = await loginAndConnectWithCard(
+          card,
+          config,
+          isAutoLogin: true,
+          customDio: customDio,
+        );
+
+        if (connected) {
+          _lastAutoConnectedCard = card.cardNumber;
+          _autoLoginStatus = 'تم الاتصال تلقائياً بالكرت: ${card.cardNumber} ✓';
+          onLog?.call(
+            '  ✅ نجح الاتصال التلقائي بالشبكة عبر الكرت (${card.cardNumber}) وتم تحويل حالته إلى مستخدم.',
+          );
+          await NativeBridge.showAlertNotification(
+            title: '🔌 تم الاتصال التلقائي بالشبكة بنجاح!',
+            body:
+                'تم تسجيل الدخول تلقائياً بالكرت رقم: ${card.cardNumber} وتحويل حالته إلى مستخدم.',
+            isError: false,
+            alertType: 'success',
+          );
+          return card.cardNumber;
+        } else {
+          onLog?.call(
+            '  ❌ فشل الكرت (${card.cardNumber}) (منتهي أو غير صالح) — الانتقال للكرت التالي في الرتل...',
+          );
+        }
+      }
+
+      _autoLoginStatus = 'تعذر الاتصال: لم ينجح أي كرت في الرتل';
+      return null;
+    } finally {
+      _isAutoLoggingIn = false;
+      notifyListeners();
     }
   }
 }

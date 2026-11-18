@@ -39,6 +39,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _injectSaveUsername = true;
   bool _usePopupSubmit = true;
   bool _skipAlreadyTested = false;
+  bool _autoLoginWithHuntedCards = false;
   bool _initialized = false;
   bool _isRefreshingSub = false;
 
@@ -73,6 +74,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _injectSaveUsername = s.injectSaveUsername;
       _usePopupSubmit = s.usePopupSubmit;
       _skipAlreadyTested = s.skipAlreadyTested;
+      _autoLoginWithHuntedCards = s.autoLoginWithHuntedCards;
 
       // ربط التغييرات النصية لحظياً بـ SettingsProvider لضمان تطبيق أي تعديل فوراً
       void syncLive() {
@@ -112,6 +114,7 @@ class _SettingsTabState extends State<SettingsTab> {
             injectSaveUsername: _injectSaveUsername,
             usePopupSubmit: _usePopupSubmit,
             skipAlreadyTested: _skipAlreadyTested,
+            autoLoginWithHuntedCards: _autoLoginWithHuntedCards,
           ),
         );
       }
@@ -801,6 +804,66 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+
+                // بطاقة 5: الاتصال التلقائي بالكروت المصطادة (Auto-Login Queue)
+                _buildSectionCard(
+                  title: 'الاتصال التلقائي بالكروت المصطادة (Auto-Login)',
+                  icon: Icons.autorenew_rounded,
+                  children: [
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AppColors.primary,
+                      title: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'الاتصال التلقائي بالكروت المصطادة عند انتهاء الرصيد أو الخروج',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.help_outline,
+                              size: 19,
+                              color: AppColors.accent,
+                            ),
+                            tooltip: 'شرح الخاصية وتأثيرها',
+                            onPressed: () => _showFieldHelpDialog(
+                              context: context,
+                              icon: Icons.autorenew_rounded,
+                              title:
+                                  'الاتصال التلقائي بالكروت المصطادة (Auto-Login Queue)',
+                              description:
+                                  'عند انتهاء رصيد الكرت الحالي أو تسجيل الخروج من شبكة المايكروتك (ظهور إشعار Sign in to Wi-Fi network)، يقوم التطبيق فوراً بتسجيل الدخول تلقائياً بأول كرت متاح في "رتل الاتصال التلقائي".',
+                              impact:
+                                  '• تعمل فقط إذا كانت هذه الخاصية مفعلة وتوجد كروت مصطادة غير مستخدمة.\n• تتوقف تماماً أثناء عمل محرك الفحص والاصطياد.\n• يتم تحويل الكرت الذي تم الاتصال به تلقائياً إلى حالة "مستخدم" وإذا كان منتهياً ينتقل للكرت الذي يليه في الرتل.',
+                              example:
+                                  'يمكنك ترتيب أولوية الكروت بالسحب والإفلات من تبويب الكروت > رتل الاتصال التلقائي.',
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: const Text(
+                        'يعمل فقط عند توفر كروت مصطادة غير مستخدمة وعند توقف الفحص والاصطياد، ويحول الكرت المتصل إلى مستخدم تلقائياً.',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      value: _autoLoginWithHuntedCards,
+                      onChanged: (val) {
+                        final v = val ?? false;
+                        setState(() => _autoLoginWithHuntedCards = v);
+                        final updated = settingsProv.settings.copyWith(
+                          autoLoginWithHuntedCards: v,
+                        );
+                        settingsProv.saveSettings(updated);
+                      },
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
 
                 // أزرار الحفظ واستعادة الافتراضيات
@@ -862,6 +925,7 @@ class _SettingsTabState extends State<SettingsTab> {
                             injectSaveUsername: _injectSaveUsername,
                             usePopupSubmit: _usePopupSubmit,
                             skipAlreadyTested: _skipAlreadyTested,
+                            autoLoginWithHuntedCards: _autoLoginWithHuntedCards,
                           );
                           settingsProv.saveSettings(updated);
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -914,6 +978,8 @@ class _SettingsTabState extends State<SettingsTab> {
                             _injectSaveUsername = s.injectSaveUsername;
                             _usePopupSubmit = s.usePopupSubmit;
                             _skipAlreadyTested = s.skipAlreadyTested;
+                            _autoLoginWithHuntedCards =
+                                s.autoLoginWithHuntedCards;
                           });
 
                           if (!context.mounted) return;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:networking/core/constants/app_strings.dart';
@@ -110,6 +111,51 @@ class EngineProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+
+    // الاستماع الفوري لإشعارات نظام أندرويد (Captive Portal / Sign in to Wi-Fi network)
+    NativeBridge.setCaptivePortalListener((ssid, isCaptive) async {
+      if (isRunning) return;
+      final settings = _settingsProvider?.settings;
+      if (settings == null || !settings.autoLoginWithHuntedCards) return;
+      if (_cardsProvider == null || _cardsProvider!.unusedCount == 0) return;
+
+      await _cardsProvider!.triggerAutoLoginIfNeeded(
+        config: settings,
+        isEngineRunning: isRunning,
+        forceAttempt: isCaptive,
+        onLog: (msg) => _logsProvider?.addLog(msg),
+      );
+    });
+
+    _startAutoLoginPeriodicMonitor();
+  }
+
+  Timer? _autoLoginTimer;
+
+  void _startAutoLoginPeriodicMonitor() {
+    if (kIsWeb ||
+        const bool.fromEnvironment('FLUTTER_TEST', defaultValue: false)) {
+      return;
+    }
+    _autoLoginTimer?.cancel();
+    _autoLoginTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (isRunning) return;
+      final settings = _settingsProvider?.settings;
+      if (settings == null || !settings.autoLoginWithHuntedCards) return;
+      if (_cardsProvider == null || _cardsProvider!.unusedCount == 0) return;
+
+      await _cardsProvider!.triggerAutoLoginIfNeeded(
+        config: settings,
+        isEngineRunning: isRunning,
+        onLog: (msg) => _logsProvider?.addLog(msg),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoLoginTimer?.cancel();
+    super.dispose();
   }
 
   /// موافقة المستخدم على المتابعة في الشبكة الجديدة

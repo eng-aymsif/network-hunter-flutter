@@ -315,5 +315,45 @@ void main() {
       // Restore normal version code
       await HiveHelper.instance.recordInstalledVersionCode(SubscriptionService.currentVersionCode);
     });
+
+    test('Auto-Login Queue priority ordering and Settings persistence', () async {
+      final helper = HiveHelper.instance;
+      await helper.clearAllCards();
+
+      await helper.saveFoundCard('111001', 'http://a.com/status');
+      await helper.saveFoundCard('111002', 'http://a.com/status');
+      await helper.saveFoundCard('111003', 'http://a.com/status');
+
+      var cards = await helper.getAllFoundCards();
+      expect(cards.length, 3);
+
+      // Reorder so '111003' is #1, '111001' is #2, '111002' is #3
+      final c1 = cards.firstWhere((c) => c.cardNumber == '111001');
+      final c2 = cards.firstWhere((c) => c.cardNumber == '111002');
+      final c3 = cards.firstWhere((c) => c.cardNumber == '111003');
+
+      await helper.updateCardsPriorityOrder([c3.id!, c1.id!, c2.id!]);
+
+      final updated = await helper.getAllFoundCards();
+      final u1 = updated.firstWhere((c) => c.cardNumber == '111001');
+      final u2 = updated.firstWhere((c) => c.cardNumber == '111002');
+      final u3 = updated.firstWhere((c) => c.cardNumber == '111003');
+
+      expect(u3.priorityOrder, 1);
+      expect(u1.priorityOrder, 2);
+      expect(u2.priorityOrder, 3);
+
+      // Verify SettingsModel autoLoginWithHuntedCards serialization
+      final settings = SettingsModel(
+        autoLoginWithHuntedCards: true,
+        autoLoginCheckInterval: 20,
+      );
+      await helper.saveSettings(settings);
+      final loaded = await helper.loadSettings();
+      expect(loaded.autoLoginWithHuntedCards, isTrue);
+      expect(loaded.autoLoginCheckInterval, 20);
+
+      await helper.clearAllCards();
+    });
   });
 }

@@ -23,13 +23,14 @@ class CardModelAdapter extends TypeAdapter<CardModel> {
       isUsed: fields[3] as bool? ?? false,
       loginUrl: fields[4] as String? ?? '',
       notes: fields[5] as String? ?? '',
+      priorityOrder: (fields[6] as int?) ?? 0,
     );
   }
 
   @override
   void write(BinaryWriter writer, CardModel obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class CardModelAdapter extends TypeAdapter<CardModel> {
       ..writeByte(4)
       ..write(obj.loginUrl)
       ..writeByte(5)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(6)
+      ..write(obj.priorityOrder);
   }
 
   @override

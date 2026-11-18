@@ -3,11 +3,10 @@ import 'package:flutter/services.dart';
 class NativeBridge {
   static const MethodChannel _channel = MethodChannel('com.example.networking/native');
   static void Function(String newSsid)? _onWifiChangedCallback;
+  static void Function(String ssid, bool isCaptive)? _onCaptivePortalCallback;
   static bool _handlerInitialized = false;
 
-  /// الاستماع الفوري لأحداث BroadcastReceiver عند تغير اسم شبكة الواي فاي المتصل بها
-  static void setWifiNetworkChangeListener(void Function(String newSsid) onWifiChanged) {
-    _onWifiChangedCallback = onWifiChanged;
+  static void _ensureMethodCallHandler() {
     if (!_handlerInitialized) {
       _handlerInitialized = true;
       _channel.setMethodCallHandler((call) async {
@@ -17,8 +16,37 @@ class NativeBridge {
           if (ssid.isNotEmpty) {
             _onWifiChangedCallback?.call(ssid);
           }
+        } else if (call.method == 'onCaptivePortalDetected') {
+          final map = call.arguments as Map?;
+          final ssid = map?['ssid']?.toString() ?? '';
+          final isCaptive = map?['isCaptive'] == true;
+          _onCaptivePortalCallback?.call(ssid, isCaptive);
         }
       });
+    }
+  }
+
+  /// الاستماع الفوري لأحداث BroadcastReceiver عند تغير اسم شبكة الواي فاي المتصل بها
+  static void setWifiNetworkChangeListener(void Function(String newSsid) onWifiChanged) {
+    _onWifiChangedCallback = onWifiChanged;
+    _ensureMethodCallHandler();
+  }
+
+  /// الاستماع الفوري لحالة بوابة الشبكة (Captive Portal / Sign in to network)
+  static void setCaptivePortalListener(
+    void Function(String ssid, bool isCaptive) onCaptivePortal,
+  ) {
+    _onCaptivePortalCallback = onCaptivePortal;
+    _ensureMethodCallHandler();
+  }
+
+  /// التحقق الفوري مما إذا كانت شبكة الواي فاي الحالية في وضع Captive Portal (تتطلب تسجيل الدخول)
+  static Future<bool> checkIsCaptivePortal() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('checkIsCaptivePortal');
+      return res ?? false;
+    } catch (_) {
+      return false;
     }
   }
 

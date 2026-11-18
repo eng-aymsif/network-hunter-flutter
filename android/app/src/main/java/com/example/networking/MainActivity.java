@@ -200,6 +200,10 @@ public class MainActivity extends FlutterActivity {
                             result.success(true);
                             break;
                         }
+                        case "checkIsCaptivePortal": {
+                            result.success(isCaptivePortalOrUnvalidatedWifi());
+                            break;
+                        }
                         default:
                             result.notImplemented();
                             break;
@@ -229,6 +233,19 @@ public class MainActivity extends FlutterActivity {
                         @Override
                         public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities capabilities) {
                             checkAndNotifySsidChange();
+                            final boolean isCaptive = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL);
+                            final boolean isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                            if (isCaptive || !isValidated) {
+                                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                    if (methodChannel != null) {
+                                        Map<String, Object> args = new HashMap<>();
+                                        args.put("ssid", getCurrentWifiSsid());
+                                        args.put("isCaptive", isCaptive);
+                                        args.put("isValidated", isValidated);
+                                        methodChannel.invokeMethod("onCaptivePortalDetected", args);
+                                    }
+                                }, 500);
+                            }
                         }
 
                         @Override
@@ -324,6 +341,29 @@ public class MainActivity extends FlutterActivity {
             return "";
         }
         return ssid;
+    }
+
+    private boolean isCaptivePortalOrUnvalidatedWifi() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    Network active = cm.getActiveNetwork();
+                    if (active != null) {
+                        NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+                        if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                            if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+                                return true;
+                            }
+                            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return false;
     }
 
     @Override
