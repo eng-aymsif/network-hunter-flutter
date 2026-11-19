@@ -104,25 +104,52 @@ class FlutterHunterBrowserController implements HunterBrowserController {
   @override
   Future<void> loadUrl(String url) async {
     if (_controller == null) await init();
-    await _controller!.loadRequest(Uri.parse(url));
+    try {
+      await _controller!.loadRequest(Uri.parse(url)).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
+    } catch (_) {}
   }
 
   @override
   Future<String> currentUrl() async {
     if (_controller == null) return '';
-    return (await _controller!.currentUrl()) ?? '';
+    try {
+      return (await _controller!.currentUrl().timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => '',
+          )) ??
+          '';
+    } catch (_) {
+      return '';
+    }
   }
 
   @override
   Future<dynamic> runJavaScript(String script) async {
     if (_controller == null) return null;
-    return await _controller!.runJavaScript(script);
+    try {
+      return await _controller!.runJavaScript(script).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {},
+          );
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
   Future<dynamic> runJavaScriptReturningResult(String script) async {
     if (_controller == null) return '';
-    return await _controller!.runJavaScriptReturningResult(script);
+    try {
+      return await _controller!.runJavaScriptReturningResult(script).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => '',
+          );
+    } catch (_) {
+      return '';
+    }
   }
 
   @override
@@ -369,18 +396,31 @@ class FlutterHunterBrowserController implements HunterBrowserController {
 
   @override
   Future<void> clearCache() async {
-    await _controller?.clearCache();
+    try {
+      await _controller?.clearCache().timeout(
+            const Duration(seconds: 4),
+            onTimeout: () {},
+          );
+    } catch (_) {}
   }
 
   @override
   Future<void> clearLocalStorage() async {
-    await _controller?.clearLocalStorage();
+    try {
+      await _controller?.clearLocalStorage().timeout(
+            const Duration(seconds: 4),
+            onTimeout: () {},
+          );
+    } catch (_) {}
   }
 
   @override
   Future<void> clearCookies() async {
     try {
-      await WebViewCookieManager().clearCookies();
+      await WebViewCookieManager().clearCookies().timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => false,
+          );
     } catch (_) {}
   }
 

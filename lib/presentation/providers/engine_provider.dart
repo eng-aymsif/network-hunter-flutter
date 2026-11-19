@@ -44,6 +44,7 @@ class EngineProvider extends ChangeNotifier {
       _status == EngineStatus.running || (_engine?.isRunning ?? false);
   bool get isPaused =>
       _status == EngineStatus.paused || (_engine?.isPaused ?? false);
+  bool get isStopping => _status == EngineStatus.stopping;
   bool get isRootAvailable => _isRootAvailable;
   String get huntingSsid => _huntingSsid;
   String get currentWifiSsid => _currentWifiSsid;
@@ -351,12 +352,23 @@ class EngineProvider extends ChangeNotifier {
   }
 
   void stopHunting() {
+    final wasStopping = _status == EngineStatus.stopping;
     _status = EngineStatus.stopping;
     _statusText = AppStrings.statusStopping;
-    _engine?.stop();
+    notifyListeners();
+
+    _engine?.stop(force: wasStopping);
     NativeBridge.setKeepScreenOn(false);
     NativeBridge.stopForegroundService();
-    notifyListeners();
+
+    // قاطع أمان إجباري لإعادة الواجهة إلى حالة الاستعداد إذا تأخر إغلاق الحلقة
+    Timer(const Duration(milliseconds: 1500), () {
+      if (_status == EngineStatus.stopping) {
+        _status = EngineStatus.ready;
+        _statusText = AppStrings.statusReady;
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> manualUnban() async {

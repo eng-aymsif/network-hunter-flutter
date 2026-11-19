@@ -51,12 +51,26 @@ class DefaultConnectivityChecker implements ConnectivityChecker {
   }
 }
 
-/// Default delayer using Future.delayed
+/// Default delayer using Future.delayed with immediate interruptibility
 class DefaultHunterDelayer implements HunterDelayer {
-  const DefaultHunterDelayer();
+  final bool Function()? isStopRequested;
+  const DefaultHunterDelayer([this.isStopRequested]);
 
   @override
-  Future<void> delay(Duration duration) => Future.delayed(duration);
+  Future<void> delay(Duration duration) async {
+    final totalMs = duration.inMilliseconds;
+    if (totalMs <= 80) {
+      await Future.delayed(duration);
+      return;
+    }
+    var elapsed = 0;
+    while (elapsed < totalMs) {
+      if (isStopRequested?.call() == true) return;
+      final step = (totalMs - elapsed) > 100 ? 100 : (totalMs - elapsed);
+      await Future.delayed(Duration(milliseconds: step));
+      elapsed += step;
+    }
+  }
 }
 
 /// Default HTTP client wrapping Dio
@@ -177,7 +191,7 @@ class HunterEngine {
   final ConnectivityChecker connectivityChecker;
   final HunterSoundPlayer soundPlayer;
   final HunterUnbanHandler unbanHandler;
-  final HunterDelayer delayer;
+  HunterDelayer delayer;
   final HunterHttpClient httpClient;
   final bool enforceQuota;
 
@@ -243,7 +257,11 @@ class HunterEngine {
        soundPlayer = soundPlayer ?? createPlatformSoundPlayer(),
        unbanHandler = unbanHandler ?? createPlatformUnbanHandler(),
        delayer = delayer ?? const DefaultHunterDelayer(),
-       httpClient = httpClient ?? DefaultHunterHttpClient();
+       httpClient = httpClient ?? DefaultHunterHttpClient() {
+    if (delayer == null) {
+      this.delayer = DefaultHunterDelayer(() => _stopRequested);
+    }
+  }
 
   /// Start the hunting process
   Future<void> start(SettingsModel config) async {
@@ -283,13 +301,39 @@ class HunterEngine {
     }
   }
 
-  /// Stop engine execution safely
-  void stop() {
-    if (_isRunning) {
+  /// Stop engine execution safely with immediate interrupt and watchdog force-stop
+  void stop({bool force = false}) {
+    if (_isRunning || _isExecuting || force) {
       _stopRequested = true;
+      _isPaused = false;
       onStatusChange?.call(EngineStatus.stopping, 'جاري الإيقاف... ⏳');
       onLog?.call('⏹ جاري إيقاف الفحص وإنهاء الجلسة بأمان...');
+
+      if (force) {
+        _forceReset();
+        return;
+      }
+
+      // قاطع أمان إجباري (Watchdog): إذا لم تتوقف الحلقة خلال 1.5 ثانية، يتم فرض الإيقاف الفوري
+      Timer(const Duration(milliseconds: 1500), () {
+        if (_isRunning || _isExecuting) {
+          _forceReset();
+        }
+      });
     }
+  }
+
+  void _forceReset() {
+    _isRunning = false;
+    _isPaused = false;
+    _isExecuting = false;
+    _stopRequested = false;
+    _currentStep = HunterStep.idle;
+    _terminalStatus = EngineStatus.ready;
+    _terminalStatusMessage = 'جاهز ومستعد 🟢';
+    onStatusChange?.call(EngineStatus.ready, 'جاهز ومستعد 🟢');
+    onFinished?.call();
+    onLog?.call('🛑 تم إيقاف عملية الفحص بنجاح.');
   }
 
   /// The main sequential execution loop
@@ -640,6 +684,7 @@ class HunterEngine {
 
         throw Exception('نتيجة غير محسومة من البوابة');
       } catch (error) {
+        if (_stopRequested) break;
         // =====================================================================
         // حدوث خطأ أو تأخر أو انقطاع شبكة (R2)
         // يُحظر تماماً تخطي الكرت أو الانتقال للكرت التالي!
@@ -651,6 +696,8 @@ class HunterEngine {
             'خطأ في الاتصال/البوابة أثناء [${_stepName(_currentStep)}]: $error (محاولة متعثرة $consecutiveErrors على الكرت $currentNumber)';
         onLog?.call('  ❌ $message');
         await db.setState('last_tested_number', currentNumber);
+
+        if (_stopRequested) break;
 
         // إطلاق التنبيه الصوتي عند بلوغ الحد الأقصى للمحاولات المتعثرة دون تخطي
         if (config.maxConsecutiveErrors > 0 &&
@@ -666,8 +713,10 @@ class HunterEngine {
           }
         }
 
+        if (_stopRequested) break;
+
         // تنفيذ فك الحظر إن كان مفعلاً
-        if (config.unbanOnError && consecutiveErrors <= config.unbanMaxRetries) {
+        if (!_stopRequested && config.unbanOnError && consecutiveErrors <= config.unbanMaxRetries) {
           _currentStep = HunterStep.unbanning;
           onStatusChange?.call(
             EngineStatus.unbanning,
@@ -679,8 +728,11 @@ class HunterEngine {
             unbanCount++;
             onStats?.call(currentNumber, totalAttempts, foundCount, unbanCount);
           }
+          if (_stopRequested) break;
           onStatusChange?.call(EngineStatus.running, 'استئناف الفحص بعد فك الحظر... 🚀');
         }
+
+        if (_stopRequested) break;
 
         // فترة انتظار إجبارية قبل إعادة محاولة نفس الكرت
         final cooldownSec = config.unbanCooldown > 0 ? config.unbanCooldown : 2.0;

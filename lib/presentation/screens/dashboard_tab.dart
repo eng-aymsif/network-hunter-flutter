@@ -283,13 +283,15 @@ class DashboardTab extends StatelessWidget {
 
                     // زر الإنهاء والتوقف
                     ElevatedButton.icon(
-                      onPressed: !engine.isRunning
+                      onPressed: (!engine.isRunning && !engine.isStopping)
                           ? null
                           : () {
                               engine.stopHunting();
                             },
                       icon: const Icon(Icons.stop),
-                      label: const Text(AppStrings.btnStop),
+                      label: Text(
+                        engine.isStopping ? 'فرض الإيقاف ⏹' : AppStrings.btnStop,
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.danger,
                         foregroundColor: Colors.white,
